@@ -18,6 +18,6 @@ type pluginHandler struct {
 
 func (ph *pluginHandler) Load(p Plugin) *Plugin {
 	ph.plugins[p.Name()] = p
-	fmt.Printf("+ Plugin '%v' loadedi \n", p.Name())
+	fmt.Printf("+ Plugin '%v' loaded \n", p.Name())
 	return &p
 }
