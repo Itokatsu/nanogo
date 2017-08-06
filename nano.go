@@ -16,6 +16,7 @@ import (
 // plugins
 import (
 	"github.com/itokatsu/nanogo/diceplugin"
+	"github.com/itokatsu/nanogo/googleplugin"
 	"github.com/itokatsu/nanogo/infoplugin"
 	"github.com/itokatsu/nanogo/pingplugin"
 )
@@ -49,6 +50,7 @@ func main() {
 	ph.Load(pingplugin.New())
 	ph.Load(infoplugin.New())
 	ph.Load(diceplugin.New())
+	ph.Load(googleplugin.New(os.Getenv("GOOGLE_API_KEY")))
 
 	// Register the messageCreate func as a callback for MessageCreate events.
 	dg.AddHandler(messageCreate)
