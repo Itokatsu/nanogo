@@ -12,8 +12,6 @@ import (
 	"github.com/itokatsu/nanogo/parser"
 )
 
-const GOOGLE_API_KEY string = "AIzaSyDSfwXgr15cxAaewaIrUWitc4Ut1v4vEpg"
-
 var client = &http.Client{Timeout: 10 * time.Second}
 
 type googlePlugin struct {
@@ -42,6 +40,8 @@ func (p *googlePlugin) buildRequestURL(query string) url.URL {
 	qs.Add("ie", "utf8")
 	qs.Add("oe", "utf8")
 	qs.Add("fields", "items(title,link,snippet)")
+	query = strings.Replace(query, "/", "", -1)
+	query = strings.Replace(query, "&", "", -1)
 	qs.Add("q", query)
 
 	var reqUrl = url.URL{
@@ -69,7 +69,7 @@ func (p *googlePlugin) HandleMsg(cmd *parser.ParsedCmd, s *discordgo.Session, m 
 		if len(cmd.Args) == 0 {
 			return
 		}
-		query := url.PathEscape(strings.Join(cmd.Args, " "))
+		query := strings.Join(cmd.Args, " ")
 		url := p.buildRequestURL(query)
 		result := SearchResults{}
 		getJSON(url, &result)
@@ -89,6 +89,6 @@ func (p *googlePlugin) Help() string {
 
 func New(apiKey string) *googlePlugin {
 	var pInstance googlePlugin
-	pInstance.apiKey = GOOGLE_API_KEY
+	pInstance.apiKey = apiKey
 	return &pInstance
 }
