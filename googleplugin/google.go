@@ -19,6 +19,12 @@ type googlePlugin struct {
 	apiKey string
 }
 
+func New(apiKey string) *googlePlugin {
+	var pInstance googlePlugin
+	pInstance.apiKey = apiKey
+	return &pInstance
+}
+
 func (p *googlePlugin) Name() string {
 	return "google"
 }
@@ -63,7 +69,6 @@ func getJSON(url url.URL, target interface{}) error {
 }
 
 func (p *googlePlugin) HandleMsg(cmd *parser.ParsedCmd, s *discordgo.Session, m *discordgo.MessageCreate) {
-
 	switch strings.ToLower(cmd.Name) {
 	case "g":
 		if len(cmd.Args) == 0 {
@@ -87,8 +92,5 @@ func (p *googlePlugin) Help() string {
 	return "return first result of google search"
 }
 
-func New(apiKey string) *googlePlugin {
-	var pInstance googlePlugin
-	pInstance.apiKey = apiKey
-	return &pInstance
+func (p *googlePlugin) Cleanup() {
 }

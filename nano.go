@@ -1,8 +1,9 @@
 package main
 
 import (
-	"flag"
+	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"math/rand"
 	"os"
 	"os/signal"
@@ -21,25 +22,41 @@ import (
 	"github.com/itokatsu/nanogo/pingplugin"
 )
 
+// various Auth Tokens and API Keys
+type ConfigKeys struct {
+	BotToken  string `json:"token"`
+	NASAKey   string `json:"nasa"`
+	GoogleKey string `json:"google"`
+}
+
 // Global variables
 var (
-	DiscordToken string
-	CmdPrefix    string
-	ph           pluginHandler
+	ph        pluginHandler
+	CmdPrefix string
+	Keys      ConfigKeys
+	StartTime time.Time
 )
+
+func loadConfig() {
+	file, err := ioutil.ReadFile("./keys.json")
+	if err != nil {
+		fmt.Println("fatal")
+		os.Exit(1)
+	}
+	json.Unmarshal(file, &Keys)
+}
 
 func init() {
 	CmdPrefix = "!"
-	flag.StringVar(&DiscordToken, "t", "", "Bot Token")
-	flag.Parse()
-
+	loadConfig()
+	StartTime = time.Now()
 	rand.Seed(time.Now().UnixNano())
 }
 
 func main() {
 
 	// Create a new Discord session using the provided bot token.
-	dg, err := discordgo.New("Bot " + DiscordToken)
+	dg, err := discordgo.New("Bot " + Keys.BotToken)
 	if err != nil {
 		fmt.Println("error creating Discord session,", err)
 		return
@@ -48,9 +65,10 @@ func main() {
 	// Load Plugins
 	ph.plugins = make(map[string]Plugin)
 	ph.Load(pingplugin.New())
-	ph.Load(infoplugin.New())
+	ph.Load(infoplugin.New(StartTime))
 	ph.Load(diceplugin.New())
-	ph.Load(googleplugin.New(os.Getenv("GOOGLE_API_KEY")))
+	ph.Load(googleplugin.New(Keys.GoogleKey))
+	defer ph.Cleanup()
 
 	// Register the messageCreate func as a callback for MessageCreate events.
 	dg.AddHandler(messageCreate)
@@ -74,8 +92,7 @@ func main() {
 // message is created on any channel that the autenticated bot has access to.
 func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 
-	// Ignore all messages created by the bot itself
-	// This isn't required in this specific example but it's a good practice.
+	// Ignore messages from bots
 	if m.Author.ID == s.State.User.ID || m.Author.Bot {
 		return
 	}
@@ -88,9 +105,4 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 			p.HandleMsg(&cmd, s, m)
 		}
 	}
-	/*		if cmd == "roll" {
-			r := rand.New(rand.NewSource(time.Now().UnixNano()))
-			s.ChannelMessageSend(m.ChannelID, strconv.Itoa(r.Intn(20)+1))
-		}*/
-
 }

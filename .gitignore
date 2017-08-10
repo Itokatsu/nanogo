@@ -1,3 +1,5 @@
 bin/
+media/
 ./.backup/
 *.swp
+*.json
