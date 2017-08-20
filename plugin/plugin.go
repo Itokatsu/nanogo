@@ -10,7 +10,7 @@ type Plugin struct {
 }
 
 type BasePlugin interface {
-	New() *Plugin
+	New(args ...string) *Plugin
 	Name() string
 	Help() string
 	HandleMsg(cmd *parser.ParsedCmd,

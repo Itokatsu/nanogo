@@ -20,13 +20,17 @@ import (
 	"github.com/itokatsu/nanogo/googleplugin"
 	"github.com/itokatsu/nanogo/infoplugin"
 	"github.com/itokatsu/nanogo/pingplugin"
+	"github.com/itokatsu/nanogo/youtubeplugin"
 )
 
 // various Auth Tokens and API Keys
 type ConfigKeys struct {
-	BotToken  string `json:"token"`
-	NASAKey   string `json:"nasa"`
-	GoogleKey string `json:"google"`
+	BotToken   string `json:"token"`
+	NASAKey    string `json:"nasa"`
+	GoogleKey  string `json:"google"`
+	YoutubeKey string `json:"youtube"`
+	IP         string `json:"ip"`
+	Port       string `json:"port"`
 }
 
 // Global variables
@@ -68,6 +72,7 @@ func main() {
 	ph.Load(infoplugin.New(StartTime))
 	ph.Load(diceplugin.New())
 	ph.Load(googleplugin.New(Keys.GoogleKey))
+	ph.Load(youtubeplugin.New(Keys.YoutubeKey, Keys.IP, Keys.Port))
 	defer ph.Cleanup()
 
 	// Register the messageCreate func as a callback for MessageCreate events.
@@ -96,7 +101,10 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 	if m.Author.ID == s.State.User.ID || m.Author.Bot {
 		return
 	}
-
+	// Test channel only
+	/*if m.ChannelID != "339261701637799936" {
+		return
+	}*/
 	if cmd := parser.Cmd(m.Content, CmdPrefix); cmd.Name == "" {
 		return
 	} else {
