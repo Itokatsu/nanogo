@@ -4,3 +4,4 @@ media/
 ./.backup/
 *.swp
 *.json
+*.filter

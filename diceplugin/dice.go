@@ -46,7 +46,7 @@ func (p *dicePlugin) HandleMsg(cmd *parser.ParsedCmd, s *discordgo.Session, m *d
 			if nRolls > maxRolls {
 				nRolls = maxRolls
 			}
-			if dieSize > maxSize {
+			if dieSize < 2 || dieSize > maxSize {
 				dieSize = maxSize
 			}
 		} else {

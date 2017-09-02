@@ -31,6 +31,9 @@ type ConfigKeys struct {
 	YoutubeKey string `json:"youtube"`
 	IP         string `json:"ip"`
 	Port       string `json:"port"`
+
+	TestingOnly bool   `json:"testing"`
+	TestChannel string `json:"testChannel"`
 }
 
 // Global variables
@@ -102,9 +105,9 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 		return
 	}
 	// Test channel only
-	/*if m.ChannelID != "339261701637799936" {
+	if Keys.TestingOnly && m.ChannelID != Keys.TestChannel {
 		return
-	}*/
+	}
 	if cmd := parser.Cmd(m.Content, CmdPrefix); cmd.Name == "" {
 		return
 	} else {
