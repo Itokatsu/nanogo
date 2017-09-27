@@ -1,12 +1,12 @@
 package youtubeplugin
 
 import (
+	"bufio"
 	"encoding/json"
 	"encoding/xml"
 	"fmt"
-	"io/ioutil"
 	"log"
-	"net/http"
+	"os"
 	"sort"
 	"strconv"
 	"strings"
@@ -14,11 +14,8 @@ import (
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/dpup/gohubbub"
-	"github.com/itokatsu/nanogo/parser"
+	"github.com/itokatsu/nanogo/botutils"
 )
-
-//all purpose client
-var client = &http.Client{Timeout: 10 * time.Second}
 
 type youtubePlugin struct {
 	name   string
@@ -33,6 +30,7 @@ func New(args ...string) *youtubePlugin {
 		log.Fatal("Youtubeplugin requires 2 args")
 	}
 	var pInstance youtubePlugin
+	pInstance.name = "youtube"
 	pInstance.apiKey = args[0]
 	pInstance.port, _ = strconv.Atoi(args[2])
 	addr := fmt.Sprintf("%v:%v", args[1], args[2])
@@ -46,13 +44,33 @@ func (p *youtubePlugin) Name() string {
 	return "youtube"
 }
 
+func (p *youtubePlugin) HasSaves() bool {
+	return true
+}
+
+const whitelist = 1
+const blacklist = -1
+const off = 0
+
 type Subscription struct {
-	Channel        YtChannel
-	FeedUrl        string
-	AddedAt        time.Time
-	AddedBy        *discordgo.User
-	NotifChannelID string
-	LastNotif      string
+	Channel         YtChannel
+	FeedUrl         string
+	AddedAt         time.Time
+	AddedBy         *discordgo.User
+	NotifChannelIDs []string
+	LastNotif       string
+	Filter          int
+}
+
+func (p *youtubePlugin) GetSubscriptions(str string) []*Subscription {
+	var matches []*Subscription
+	for id, sub := range p.subs {
+		title := strings.ToLower(sub.Channel.Snippet.Title)
+		if id == str || strings.Contains(title, strings.ToLower(str)) {
+			matches = append(matches, sub)
+		}
+	}
+	return matches
 }
 
 // sorter wrapper
@@ -106,7 +124,17 @@ type YtChannel struct {
 		ViewCount string `json:"viewCount"`
 		SubCount  string `json:"subscriberCount"`
 		VidCount  string `json:"videoCount"`
+		SubHidden bool   `json:"hiddenSubscriberCount"`
 	} `json:"statistics"`
+}
+
+func (c *YtChannel) Details() string {
+	if c.Stats.SubHidden {
+		return fmt.Sprintf("Now subscribed to %v \n %v Videos | %v Views",
+			c.Snippet.Title, c.Stats.VidCount, c.Stats.ViewCount)
+	}
+	return fmt.Sprintf("Now subscribed to %v \n %v Subscribers | %v Videos | %v Views",
+		c.Snippet.Title, c.Stats.SubCount, c.Stats.VidCount, c.Stats.ViewCount)
 }
 
 type VideoListResponse struct {
@@ -150,21 +178,11 @@ type Entry struct {
 	Updated   time.Time `xml:"updated"`
 }
 
-func getJSON(url string, target interface{}) error {
-	r, err := client.Get(url)
-	if err != nil {
-		return err
-	}
-	defer r.Body.Close()
-	return json.NewDecoder(r.Body).Decode(target)
-}
-
 func (p *youtubePlugin) GetChannelBy(fieldName string, searchTerm string) (YtChannel, error) {
 	url := "https://www.googleapis.com/youtube/v3/"
 	url += fmt.Sprintf("channels?part=snippet,statistics&%v=%v&key=%v", fieldName, searchTerm, p.apiKey)
-	fmt.Println(url)
 	result := ChannelListResponse{}
-	jsonerr := getJSON(url, &result)
+	jsonerr := botutils.FetchJSON(url, &result)
 	if jsonerr != nil {
 		return YtChannel{}, fmt.Errorf("Failed to parse Youtube API response for %v", searchTerm)
 	}
@@ -178,7 +196,7 @@ func (p *youtubePlugin) GetVideo(id string) (YtVideo, error) {
 	url := "https://www.googleapis.com/youtube/v3/"
 	url += fmt.Sprintf("videos?part=snippet&id=%v&key=%v", id, p.apiKey)
 	result := VideoListResponse{}
-	jsonerr := getJSON(url, &result)
+	jsonerr := botutils.FetchJSON(url, &result)
 	if jsonerr != nil {
 		return YtVideo{}, fmt.Errorf("Failed to parse Youtube API response for videos/%v", id)
 	}
@@ -186,6 +204,21 @@ func (p *youtubePlugin) GetVideo(id string) (YtVideo, error) {
 		return YtVideo{}, fmt.Errorf("No Video found with id %v", id)
 	}
 	return result.Items[0], nil
+}
+
+func matchFilter(filepath string, str string) bool {
+	file, err := os.Open(filepath)
+	if err != nil {
+		return false
+	}
+	defer file.Close()
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		if strings.Contains(str, scanner.Text()) {
+			return true
+		}
+	}
+	return false
 }
 
 func (p *youtubePlugin) AddSubscription(sub *Subscription, s *discordgo.Session) error {
@@ -218,14 +251,25 @@ func (p *youtubePlugin) AddSubscription(sub *Subscription, s *discordgo.Session)
 			return
 		}
 
+		//apply filter
+		if sub.Filter != off {
+			path := fmt.Sprintf("./youtube/%v.filter", sub.Channel.Id)
+			r := matchFilter(path, entry.Title)
+			if r && sub.Filter == blacklist {
+				return
+			}
+			if !r && sub.Filter == whitelist {
+				return
+			}
+		}
+
 		sub.LastNotif = vidID
-		// timing info
-		timeMsg := fmt.Sprintf("```Entry Published: %v \nEntry Update: %v \nFeed Update: %v```", entry.Published, entry.Updated, feed.Updated)
 		msg := fmt.Sprintf("New video from **%s** \n `%s` \n http://www.youtube.com/watch?v=%s",
 			entry.Author.Name, entry.Title, entry.VideoId[len("yt:video:"):])
-		s.ChannelMessageSend(sub.NotifChannelID, msg)
-		s.ChannelMessageSend(sub.NotifChannelID, timeMsg)
-	})
+		for _, c := range sub.NotifChannelIDs {
+			s.ChannelMessageSend(c, msg)
+		}
+	}) // end of callback func
 	if err != nil {
 		return err
 	} else {
@@ -234,7 +278,7 @@ func (p *youtubePlugin) AddSubscription(sub *Subscription, s *discordgo.Session)
 	}
 }
 
-func (p *youtubePlugin) HandleMsg(cmd *parser.ParsedCmd, s *discordgo.Session, m *discordgo.MessageCreate) {
+func (p *youtubePlugin) HandleMsg(cmd *botutils.Cmd, s *discordgo.Session, m *discordgo.MessageCreate) {
 	switch strings.ToLower(cmd.Name) {
 	case "yt", "youtube":
 		if len(cmd.Args) < 1 {
@@ -255,8 +299,22 @@ func (p *youtubePlugin) HandleMsg(cmd *parser.ParsedCmd, s *discordgo.Session, m
 					return
 				}
 			}
-			if _, ok := p.subs[theChannel.Id]; ok {
-				s.ChannelMessageSend(m.ChannelID, "Already subscribed")
+
+			notif := m.ChannelID
+			if len(cmd.Args) > 2 {
+				//@TODO handle channel mention
+				notif = cmd.Args[2]
+			}
+
+			if sub, ok := p.subs[theChannel.Id]; ok {
+				for _, id := range sub.NotifChannelIDs {
+					if notif == id {
+						s.ChannelMessageSend(m.ChannelID, "Already subscribed")
+						return
+					}
+				}
+				sub.NotifChannelIDs = append(sub.NotifChannelIDs, notif)
+				s.ChannelMessageSend(m.ChannelID, sub.Channel.Details())
 				return
 			}
 			//Build Subscription
@@ -264,12 +322,7 @@ func (p *youtubePlugin) HandleMsg(cmd *parser.ParsedCmd, s *discordgo.Session, m
 			sub.Channel = theChannel
 			sub.AddedAt, _ = m.Timestamp.Parse()
 			sub.AddedBy = m.Author
-			if len(cmd.Args) > 2 {
-				//@TODO handle channel mention
-				sub.NotifChannelID = cmd.Args[2]
-			} else {
-				sub.NotifChannelID = m.ChannelID
-			}
+			sub.Filter = off
 			sub.FeedUrl = "https://www.youtube.com/xml/feeds/"
 			sub.FeedUrl += fmt.Sprintf("videos.xml?channel_id=%v", sub.Channel.Id)
 
@@ -278,31 +331,57 @@ func (p *youtubePlugin) HandleMsg(cmd *parser.ParsedCmd, s *discordgo.Session, m
 				s.ChannelMessageSend(m.ChannelID, err.Error())
 				return
 			}
-			msg := fmt.Sprintf("Now subscribed to %v \n %v Videos | %v Subscribers | %v Views",
-				sub.Channel.Snippet.Title, sub.Channel.Stats.VidCount,
-				sub.Channel.Stats.SubCount, sub.Channel.Stats.ViewCount)
-			s.ChannelMessageSend(m.ChannelID, msg)
+			s.ChannelMessageSend(m.ChannelID, sub.Channel.Details())
 
 		case "unsub":
 			if len(cmd.Args) < 2 {
 				return
 			}
-			perm, _ := s.UserChannelPermissions(s.State.User.ID, m.ChannelID)
+			subs := p.GetSubscriptions(cmd.Args[1])
+			if len(subs) == 0 {
+				return
+			}
+			perm, _ := s.UserChannelPermissions(m.Author.ID, m.ChannelID)
 			admin := (perm&discordgo.PermissionAdministrator == discordgo.PermissionAdministrator)
-			for id, sub := range p.subs {
-				title := strings.ToLower(sub.Channel.Snippet.Title)
-				if id == cmd.Args[1] || title == strings.ToLower(cmd.Args[1]) {
-					if m.Author.ID != sub.AddedBy.ID && !admin {
-						s.ChannelMessageSend(m.ChannelID, "You cannot do that :nano:")
-						return
-					}
-					msg := fmt.Sprintf("Unsubscribed from %v", title)
-					p.client.Unsubscribe(sub.FeedUrl)
-					delete(p.subs, id)
-					s.ChannelMessageSend(m.ChannelID, msg)
-					return
+			if m.Author.ID != subs[0].AddedBy.ID && !admin {
+				s.ChannelMessageSend(m.ChannelID, "You cannot do that :nano:")
+				return
+			}
+			msg := fmt.Sprintf("Unsubscribed from %v", subs[0].Channel.Snippet.Title)
+			p.client.Unsubscribe(subs[0].FeedUrl)
+			delete(p.subs, subs[0].Channel.Id)
+			s.ChannelMessageSend(m.ChannelID, msg)
+			return
+
+		case "filter":
+			if len(cmd.Args) < 2 {
+				return
+			}
+			msg := ""
+			subs := p.GetSubscriptions(cmd.Args[1])
+			if len(subs) == 0 {
+				return
+			}
+			if len(cmd.Args) < 3 {
+				switch subs[0].Filter {
+				case off:
+					msg = "Filter : off"
+				case blacklist:
+					msg = "Filter : blacklist"
+				case whitelist:
+					msg = "Filter : whitelist"
+				}
+			} else {
+				switch strings.ToLower(cmd.Args[2]) {
+				case "whitelist", "white", "wl", "+":
+					subs[0].Filter = whitelist
+				case "blacklist", "black", "bl", "-":
+					subs[0].Filter = blacklist
+				case "=", "off":
+					subs[0].Filter = off
 				}
 			}
+			s.ChannelMessageSend(m.ChannelID, msg)
 
 		case "list":
 			if len(p.subs) < 1 {
@@ -315,12 +394,11 @@ func (p *youtubePlugin) HandleMsg(cmd *parser.ParsedCmd, s *discordgo.Session, m
 			}
 			sort.Sort(ByName{subs})
 			/* page, format and print this shit*/
-			msg := fmt.Sprintf("```%3s %-30s %-15s %s\n", "#", "Chaîne", "Ajouté par", "Notif")
+			msg := fmt.Sprintf("```%3s %-30s %-15s %s\n", "#", "Chaîne", "Ajouté par", "Notifs")
 			for idx, sub := range subs {
-				notifChannel, _ := s.Channel(sub.NotifChannelID)
-				msg += fmt.Sprintf("%3d %-30s %-15s %s\n",
+				msg += fmt.Sprintf("%3d %-30s %-15s %d\n",
 					idx+1, sub.Channel.Snippet.Title,
-					sub.AddedBy.Username, fmt.Sprintf("#%s", notifChannel.Name))
+					sub.AddedBy.Username, len(sub.NotifChannelIDs))
 			}
 			msg += fmt.Sprintf("\nSubscribed to %d channels.```", len(subs))
 			s.ChannelMessageSend(m.ChannelID, msg)
@@ -332,25 +410,27 @@ func (p *youtubePlugin) Help() string {
 	return "oupas"
 }
 
-func (p *youtubePlugin) SaveTo(file string) {
-	buf, err := json.Marshal(p.subs)
+func (p *youtubePlugin) Save() []byte {
+	buf, err := json.Marshal(*p)
 	if err != nil {
-		fmt.Errorf("Failed to convert youtube/subscriptions struct to json")
-		return
+		fmt.Errorf("Failed to convert plugin state to json")
 	}
-	wErr := ioutil.WriteFile(file, buf, 0777)
-	if wErr != nil {
-		fmt.Errorf("Failed to write to file %s", file)
-		return
-	}
+	return buf
 }
 
-func (p *youtubePlugin) LoadFrom(file string) {
-
+func (p *youtubePlugin) Load(data []byte) error {
+	if data == nil {
+		return fmt.Errorf("no data")
+	}
+	err := json.Unmarshal(data, &p)
+	if err != nil {
+		fmt.Println("Error loading data", err)
+		return err
+	}
+	return nil
 }
 
 func (p *youtubePlugin) Cleanup() {
-	p.SaveTo("youtubecfg.json")
 	for _, s := range p.subs {
 		p.client.Unsubscribe(s.FeedUrl)
 	}

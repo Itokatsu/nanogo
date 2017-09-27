@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/bwmarrin/discordgo"
-	"github.com/itokatsu/nanogo/parser"
+	"github.com/itokatsu/nanogo/botutils"
 )
 
 // plugins
@@ -19,7 +19,8 @@ import (
 	"github.com/itokatsu/nanogo/diceplugin"
 	"github.com/itokatsu/nanogo/googleplugin"
 	"github.com/itokatsu/nanogo/infoplugin"
-	"github.com/itokatsu/nanogo/pingplugin"
+	"github.com/itokatsu/nanogo/tagplugin"
+	//	"github.com/itokatsu/nanogo/testplugin"
 	"github.com/itokatsu/nanogo/youtubeplugin"
 )
 
@@ -40,17 +41,17 @@ type ConfigKeys struct {
 var (
 	ph        pluginHandler
 	CmdPrefix string
-	Keys      ConfigKeys
+	Cfg       ConfigKeys
 	StartTime time.Time
 )
 
 func loadConfig() {
-	file, err := ioutil.ReadFile("./keys.json")
+	file, err := ioutil.ReadFile("./config.json")
 	if err != nil {
 		fmt.Println("fatal")
 		os.Exit(1)
 	}
-	json.Unmarshal(file, &Keys)
+	json.Unmarshal(file, &Cfg)
 }
 
 func init() {
@@ -63,7 +64,7 @@ func init() {
 func main() {
 
 	// Create a new Discord session using the provided bot token.
-	dg, err := discordgo.New("Bot " + Keys.BotToken)
+	dg, err := discordgo.New("Bot " + Cfg.BotToken)
 	if err != nil {
 		fmt.Println("error creating Discord session,", err)
 		return
@@ -71,12 +72,14 @@ func main() {
 
 	// Load Plugins
 	ph.plugins = make(map[string]Plugin)
-	ph.Load(pingplugin.New())
 	ph.Load(infoplugin.New(StartTime))
 	ph.Load(diceplugin.New())
-	ph.Load(googleplugin.New(Keys.GoogleKey))
-	ph.Load(youtubeplugin.New(Keys.YoutubeKey, Keys.IP, Keys.Port))
-	defer ph.Cleanup()
+	ph.Load(tagplugin.New())
+
+	//ph.Load(googleplugin.New(Cfg.GoogleKey))
+	ph.Load(googleplugin.New(Cfg.GoogleKey))
+	ph.Load(youtubeplugin.New(Cfg.YoutubeKey, Cfg.IP, Cfg.Port))
+	defer ph.Save()
 
 	// Register the messageCreate func as a callback for MessageCreate events.
 	dg.AddHandler(messageCreate)
@@ -105,13 +108,11 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 		return
 	}
 	// Test channel only
-	if Keys.TestingOnly && m.ChannelID != Keys.TestChannel {
+	if Cfg.TestingOnly && m.ChannelID != Cfg.TestChannel {
 		return
 	}
-	if cmd := parser.Cmd(m.Content, CmdPrefix); cmd.Name == "" {
-		return
-	} else {
-		//@TODO: use goroutines
+	if cmd := botutils.ParseCmd(m.Content, CmdPrefix); cmd.Name != "" {
+		//@TODO: use goroutines?
 		for _, p := range ph.plugins {
 			p.HandleMsg(&cmd, s, m)
 		}

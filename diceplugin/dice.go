@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/bwmarrin/discordgo"
-	"github.com/itokatsu/nanogo/parser"
+	"github.com/itokatsu/nanogo/botutils"
 )
 
 var maxRolls = 10
@@ -28,10 +28,14 @@ func New() *dicePlugin {
 	return &pInstance
 }
 
+func (p *dicePlugin) HasSaves() bool {
+	return false
+}
+
 var validArg = `^(\d*?)d?(\d+)$`
 var re = regexp.MustCompile(validArg)
 
-func (p *dicePlugin) HandleMsg(cmd *parser.ParsedCmd, s *discordgo.Session, m *discordgo.MessageCreate) {
+func (p *dicePlugin) HandleMsg(cmd *botutils.Cmd, s *discordgo.Session, m *discordgo.MessageCreate) {
 	switch strings.ToLower(cmd.Name) {
 	case "roll":
 		r := rand.New(rand.NewSource(time.Now().UnixNano()))
@@ -74,6 +78,14 @@ func (p *dicePlugin) HandleMsg(cmd *parser.ParsedCmd, s *discordgo.Session, m *d
 
 func (p *dicePlugin) Help() string {
 	return "roll a die"
+}
+
+func (p *dicePlugin) Save() []byte {
+	return nil
+}
+
+func (p *dicePlugin) Load(data []byte) error {
+	return nil
 }
 
 func (p *dicePlugin) Cleanup() {

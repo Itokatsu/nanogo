@@ -1,13 +1,13 @@
-package parser
+package botutils
 
 import "strings"
 
-type ParsedCmd struct {
+type Cmd struct {
 	Name string
 	Args []string
 }
 
-func Cmd(msg string, prefix string) (parsed ParsedCmd) {
+func ParseCmd(msg string, prefix string) (c Cmd) {
 
 	msg = strings.TrimSpace(msg)
 	if !strings.HasPrefix(strings.ToLower(msg),
@@ -21,15 +21,10 @@ func Cmd(msg string, prefix string) (parsed ParsedCmd) {
 
 	length := len(msg)
 	if length > 1 {
-		parsed.Args = f[1:]
+		c.Args = f[1:]
 	}
 	if length > 0 {
-		parsed.Name = f[0]
+		c.Name = f[0]
 	}
-	return parsed
+	return c
 }
-
-/*
-func Date() {
-
-} */

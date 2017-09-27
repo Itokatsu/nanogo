@@ -1,11 +1,12 @@
 package infoplugin
 
 import (
-	"github.com/bwmarrin/discordgo"
-	"github.com/itokatsu/nanogo/parser"
 	"os"
 	"strings"
 	"time"
+
+	"github.com/bwmarrin/discordgo"
+	"github.com/itokatsu/nanogo/botutils"
 )
 
 type infoPlugin struct {
@@ -19,23 +20,38 @@ func New(t time.Time) *infoPlugin {
 	return &pInstance
 }
 
+func (p *infoPlugin) HasSaves() bool {
+	return false
+}
+
 func (p *infoPlugin) Name() string {
 	return "info"
 }
 
-func (p *infoPlugin) HandleMsg(cmd *parser.ParsedCmd, s *discordgo.Session, m *discordgo.MessageCreate) {
+func (p *infoPlugin) HandleMsg(cmd *botutils.Cmd, s *discordgo.Session, m *discordgo.MessageCreate) {
 	switch strings.ToLower(cmd.Name) {
 	case "uptime":
 		uptime := time.Since(p.startTime)
 		uptime -= uptime % time.Second
 		s.ChannelMessageSend(m.ChannelID, uptime.String())
 		return
-	case "source":
+
+	case "src", "source":
 		s.ChannelMessageSend(m.ChannelID, "https://github.com/Itokatsu/nanogo")
 		return
+
+	case "ping":
+		s.ChannelMessageSend(m.ChannelID, "Pong!")
+		return
+
+	case "pong":
+		s.ChannelMessageSend(m.ChannelID, "Ping!")
+		return
+
 	case "tenhou":
 		s.ChannelMessageSend(m.ChannelID, "http://tenhou.net/0/?L7133")
 		return
+
 	case "essences":
 		imgReader, err := os.Open("./media/img/essences.png")
 		if err != nil {
@@ -56,7 +72,17 @@ func (p *infoPlugin) HandleMsg(cmd *parser.ParsedCmd, s *discordgo.Session, m *d
 }
 
 func (p *infoPlugin) Help() string {
-	return "on s'en tape"
+	return `
+	!info - Some Info about me.
+	!uptime	`
+}
+
+func (p *infoPlugin) Save() []byte {
+	return nil
+}
+
+func (p *infoPlugin) Load(data []byte) error {
+	return nil
 }
 
 func (p *infoPlugin) Cleanup() {
