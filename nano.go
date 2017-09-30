@@ -21,6 +21,7 @@ import (
 	"github.com/itokatsu/nanogo/infoplugin"
 	"github.com/itokatsu/nanogo/tagplugin"
 	//	"github.com/itokatsu/nanogo/testplugin"
+	"github.com/itokatsu/nanogo/catplugin"
 	"github.com/itokatsu/nanogo/youtubeplugin"
 )
 
@@ -75,6 +76,7 @@ func main() {
 	ph.Load(infoplugin.New(StartTime))
 	ph.Load(diceplugin.New())
 	ph.Load(tagplugin.New())
+	ph.Load(catplugin.New())
 
 	//ph.Load(googleplugin.New(Cfg.GoogleKey))
 	ph.Load(googleplugin.New(Cfg.GoogleKey))

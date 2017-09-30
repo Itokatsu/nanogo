@@ -44,9 +44,16 @@ type SearchResults struct {
 	Items []Result
 }
 type Result struct {
-	Title   string
-	Link    string
-	Snipper string
+	Title           string
+	Link            string
+	Snippet         string
+	ThumbnailLink   string
+	ThumbnailHeight int
+	ThumbnailWidth  int
+}
+
+func (r Result) String() string {
+	return fmt.Sprintf("%s\n%s", r.Title, r.Link)
 }
 
 func (p *googlePlugin) buildRequestURL(query string, n int) url.URL {
@@ -98,32 +105,80 @@ func (p *googlePlugin) HandleMsg(cmd *botutils.Cmd, s *discordgo.Session, m *dis
 		}
 
 	//google img
-	case "gi":
+	case "gis":
 		if len(cmd.Args) == 0 {
 			return
 		}
 		query := strings.Join(cmd.Args, " ")
-		url := p.buildRequestURL(query, 9)
-		url.Query().Set("searchType", "image")
+		qs := url.Values{}
+		qs.Set("q", query)
+		qs.Set("tbm", "isch")
+		var reqUrl = url.URL{
+			Scheme:   "https",
+			Host:     "www.google.com",
+			Path:     "search",
+			RawQuery: qs.Encode(),
+		}
+		s.ChannelMessageSend(m.ChannelID, reqUrl.String())
+		/*		url := p.buildRequestURL(query, 1)
+				url.Query().Set("searchType", "image")
 
-		p.lastReqs[m.ChannelID] = &url
-		results := []SearchResults{}
+				p.lastReqs[m.ChannelID] = &url
+				results := []SearchResults{}
+				err := botutils.FetchJSON(url.String(), &results)
+				if err != nil {
+					return
+				}*/
+
+	//more results
+	case "gm":
+		url, ok := p.lastReqs[m.ChannelID]
+		if !ok {
+			return
+		}
+
+		qs := url.Query()
+		start, errConv := strconv.Atoi(qs.Get("start"))
+		if errConv != nil {
+			start = 1
+		}
+		offset, errConv2 := strconv.Atoi(qs.Get("num"))
+		if errConv2 != nil {
+			return
+		}
+
+		qs.Set("start", strconv.Itoa(start+offset))
+		qs.Set("num", "5")
+		url.RawQuery = qs.Encode()
+		results := SearchResults{}
 		err := botutils.FetchJSON(url.String(), &results)
 		if err != nil {
 			return
 		}
-
-	//more results
-	case "gm":
-		if _, ok := p.lastReqs[m.ChannelID]; !ok {
-			return
+		p.lastReqs[m.ChannelID] = url
+		if len(results.Items) > 0 {
+			resultsStr := make([]fmt.Stringer, len(results.Items))
+			for i, v := range results.Items {
+				resultsStr[i] = fmt.Stringer(v)
+			}
+			botutils.NewMenu(s, resultsStr, "\n", m.ChannelID, func(strer fmt.Stringer) {
+				r := Result{}
+				r = strer.(Result)
+				s.ChannelMessageSend(m.ChannelID, r.Link)
+			})
+		} else {
+			msg := fmt.Sprintf("No result found for %v", strings.Join(cmd.Args, " "))
+			s.ChannelMessageSend(m.ChannelID, msg)
 		}
 	}
 }
 
 func (p *googlePlugin) Help() string {
 	return `
-	!g <term> - Return first search results
+	!g <term> - Return first result from a Google search
+	!gm - Return 5 more results
+	
+	!gis <term> - Return first result from a Google image search
 	`
 }
 

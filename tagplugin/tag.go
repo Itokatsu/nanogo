@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/itokatsu/nanogo/botutils"
@@ -17,6 +18,7 @@ type tagPlugin struct {
 type Tag struct {
 	AuthorID string
 	Message  string
+	LastEdit time.Time
 }
 
 func New() *tagPlugin {
@@ -77,7 +79,7 @@ func (p *tagPlugin) HandleMsg(cmd *botutils.Cmd, s *discordgo.Session, m *discor
 			// Tag already exist, only admins or author can modify it
 			if tag, exist := p.Tags[guildID][key]; exist {
 				if m.Author.ID != tag.AuthorID && !botutils.AuthorIsAdmin(s, m) {
-					msg := fmt.Sprintf(":nano: The tag `%s` belongs to %s.", key, m.Author.Username)
+					msg := fmt.Sprintf("The tag `%s` belongs to %s.", key, m.Author.Username)
 					s.ChannelMessageSend(m.ChannelID, msg)
 					return
 				}
@@ -85,7 +87,7 @@ func (p *tagPlugin) HandleMsg(cmd *botutils.Cmd, s *discordgo.Session, m *discor
 			p.Tags[guildID][key] = Tag{
 				AuthorID: m.Author.ID,
 				Message:  strings.Join(cmd.Args[2:], " "),
-			}
+				LastEdit: time.Now()}
 			s.ChannelMessageSend(m.ChannelID, p.Tags[guildID][key].Message)
 			return
 
@@ -100,7 +102,7 @@ func (p *tagPlugin) HandleMsg(cmd *botutils.Cmd, s *discordgo.Session, m *discor
 				return
 			}
 			if m.Author.ID != tag.AuthorID && !botutils.AuthorIsAdmin(s, m) {
-				msg := fmt.Sprintf(":nano: Tag `%s` belongs to %s.", key, m.Author.Username)
+				msg := fmt.Sprintf("Tag `%s` belongs to %s.", key, m.Author.Username)
 				s.ChannelMessageSend(m.ChannelID, msg)
 				return
 			}
