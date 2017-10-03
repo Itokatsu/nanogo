@@ -23,10 +23,6 @@ func New() *catPlugin {
 	return &pInstance
 }
 
-func (p *catPlugin) HasSaves() bool {
-	return false
-}
-
 type Response struct {
 	Images []CatImg `xml:"data>images>image"`
 }
@@ -56,15 +52,4 @@ func (p *catPlugin) HandleMsg(cmd *botutils.Cmd, s *discordgo.Session, m *discor
 
 func (p *catPlugin) Help() string {
 	return "Get a random cat picture"
-}
-
-func (p *catPlugin) Save() []byte {
-	return nil
-}
-
-func (p *catPlugin) Load(data []byte) error {
-	return nil
-}
-
-func (p *catPlugin) Cleanup() {
 }

@@ -12,7 +12,7 @@ import (
 
 type tagPlugin struct {
 	name string
-	Tags map[string]map[string]Tag
+	Tags map[string]map[string]Tag `json:"tags,omitempty"`
 }
 
 type Tag struct {
@@ -30,10 +30,6 @@ func New() *tagPlugin {
 
 func (p *tagPlugin) Name() string {
 	return p.name
-}
-
-func (p *tagPlugin) HasSaves() bool {
-	return true
 }
 
 func (p *tagPlugin) HandleMsg(cmd *botutils.Cmd, s *discordgo.Session, m *discordgo.MessageCreate) {
@@ -157,8 +153,4 @@ func (p *tagPlugin) Load(data []byte) error {
 		return err
 	}
 	return nil
-}
-
-func (p *tagPlugin) Cleanup() {
-
 }

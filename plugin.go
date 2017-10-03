@@ -17,15 +17,15 @@ type Plugin interface {
 	HandleMsg(cmd *botutils.Cmd, s *discordgo.Session, m *discordgo.MessageCreate)
 	Help() string
 	Name() string
-	HasSaves() bool
-	Load([]byte) error
-	Save() []byte
-	Cleanup()
 }
 
 type HasSave interface {
 	Load([]byte) error
 	Save() []byte
+}
+
+type HasCleanup interface {
+	Cleanup()
 }
 
 // plugin Handler
@@ -34,7 +34,8 @@ type pluginHandler struct {
 }
 
 func (ph *pluginHandler) Load(p Plugin) Plugin {
-	if !p.HasSaves() {
+	psl, ok := p.(HasSave)
+	if !ok {
 		return ph.Start(p)
 	}
 	filename := fmt.Sprintf("%v/%v", saveDir, p.Name())
@@ -42,7 +43,7 @@ func (ph *pluginHandler) Load(p Plugin) Plugin {
 	if err != nil {
 		return ph.Start(p)
 	}
-	if err := p.Load(content); err != nil {
+	if err := psl.Load(content); err != nil {
 		return ph.Start(p)
 	}
 	fmt.Printf("+ Plugin '%v' loaded \n", p.Name())
@@ -63,11 +64,12 @@ func (ph *pluginHandler) Save() {
 		}
 	}
 	for _, p := range ph.plugins {
-		if !p.HasSaves() {
+		psl, ok := p.(HasSave)
+		if !ok {
 			continue
 		}
 		filename := fmt.Sprintf("%v/%v", saveDir, p.Name())
-		data := p.Save()
+		data := psl.Save()
 		if data == nil {
 			continue
 		}
@@ -81,6 +83,10 @@ func (ph *pluginHandler) Save() {
 
 func (ph *pluginHandler) Cleanup() {
 	for _, p := range ph.plugins {
-		p.Cleanup()
+		pclnup, ok := p.(HasCleanup)
+		if !ok {
+			continue
+		}
+		pclnup.Cleanup()
 	}
 }

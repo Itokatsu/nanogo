@@ -36,10 +36,6 @@ func (p *googlePlugin) Name() string {
 	return "google"
 }
 
-func (p *googlePlugin) HasSaves() bool {
-	return false
-}
-
 type SearchResults struct {
 	Items []Result
 }
@@ -180,15 +176,4 @@ func (p *googlePlugin) Help() string {
 	
 	!gis <term> - Return first result from a Google image search
 	`
-}
-
-func (p *googlePlugin) Save() []byte {
-	return nil
-}
-
-func (p *googlePlugin) Load(data []byte) error {
-	return nil
-}
-
-func (p *googlePlugin) Cleanup() {
 }

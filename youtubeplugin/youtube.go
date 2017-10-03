@@ -22,7 +22,7 @@ type youtubePlugin struct {
 	apiKey string
 	client *gohubbub.Client
 	port   int
-	subs   map[string]*Subscription
+	Subs   map[string]*Subscription `json:"subs,omitempty"`
 }
 
 func New(args ...string) *youtubePlugin {
@@ -35,17 +35,13 @@ func New(args ...string) *youtubePlugin {
 	pInstance.port, _ = strconv.Atoi(args[2])
 	addr := fmt.Sprintf("%v:%v", args[1], args[2])
 	pInstance.client = gohubbub.NewClient(addr, "Nanogo")
-	pInstance.subs = make(map[string]*Subscription)
+	pInstance.Subs = make(map[string]*Subscription)
 	go pInstance.client.StartAndServe("", pInstance.port)
 	return &pInstance
 }
 
 func (p *youtubePlugin) Name() string {
 	return "youtube"
-}
-
-func (p *youtubePlugin) HasSaves() bool {
-	return true
 }
 
 const whitelist = 1
@@ -64,7 +60,7 @@ type Subscription struct {
 
 func (p *youtubePlugin) GetSubscriptions(str string) []*Subscription {
 	var matches []*Subscription
-	for id, sub := range p.subs {
+	for id, sub := range p.Subs {
 		title := strings.ToLower(sub.Channel.Snippet.Title)
 		if id == str || strings.Contains(title, strings.ToLower(str)) {
 			matches = append(matches, sub)
@@ -273,7 +269,7 @@ func (p *youtubePlugin) AddSubscription(sub *Subscription, s *discordgo.Session)
 	if err != nil {
 		return err
 	} else {
-		p.subs[sub.Channel.Id] = sub
+		p.Subs[sub.Channel.Id] = sub
 		return nil
 	}
 }
@@ -284,16 +280,15 @@ func (p *youtubePlugin) HandleMsg(cmd *botutils.Cmd, s *discordgo.Session, m *di
 		if len(cmd.Args) < 1 {
 			return
 		}
-
 		switch cmd.Args[0] {
 		case "sub":
 			if len(cmd.Args) < 2 {
 				return
 			}
-			theChannel := YtChannel{}
-			theChannel, err := p.GetChannelBy("forUsername", cmd.Args[1])
+			YTChan := YtChannel{}
+			YTChan, err := p.GetChannelBy("forUsername", cmd.Args[1])
 			if err != nil {
-				theChannel, err = p.GetChannelBy("id", cmd.Args[1])
+				YTChan, err = p.GetChannelBy("id", cmd.Args[1])
 				if err != nil {
 					s.ChannelMessageSend(m.ChannelID, err.Error())
 					return
@@ -306,7 +301,7 @@ func (p *youtubePlugin) HandleMsg(cmd *botutils.Cmd, s *discordgo.Session, m *di
 				notif = cmd.Args[2]
 			}
 
-			if sub, ok := p.subs[theChannel.Id]; ok {
+			if sub, ok := p.Subs[YTChan.Id]; ok {
 				for _, id := range sub.NotifChannelIDs {
 					if notif == id {
 						s.ChannelMessageSend(m.ChannelID, "Already subscribed")
@@ -319,12 +314,14 @@ func (p *youtubePlugin) HandleMsg(cmd *botutils.Cmd, s *discordgo.Session, m *di
 			}
 			//Build Subscription
 			var sub Subscription
-			sub.Channel = theChannel
+			sub.Channel = YTChan
 			sub.AddedAt, _ = m.Timestamp.Parse()
 			sub.AddedBy = m.Author
 			sub.Filter = off
 			sub.FeedUrl = "https://www.youtube.com/xml/feeds/"
 			sub.FeedUrl += fmt.Sprintf("videos.xml?channel_id=%v", sub.Channel.Id)
+			sub.NotifChannelIDs = make([]string, 0)
+			sub.NotifChannelIDs = append(sub.NotifChannelIDs, notif)
 
 			err = p.AddSubscription(&sub, s)
 			if err != nil {
@@ -349,7 +346,7 @@ func (p *youtubePlugin) HandleMsg(cmd *botutils.Cmd, s *discordgo.Session, m *di
 			}
 			msg := fmt.Sprintf("Unsubscribed from %v", subs[0].Channel.Snippet.Title)
 			p.client.Unsubscribe(subs[0].FeedUrl)
-			delete(p.subs, subs[0].Channel.Id)
+			delete(p.Subs, subs[0].Channel.Id)
 			s.ChannelMessageSend(m.ChannelID, msg)
 			return
 
@@ -384,12 +381,12 @@ func (p *youtubePlugin) HandleMsg(cmd *botutils.Cmd, s *discordgo.Session, m *di
 			s.ChannelMessageSend(m.ChannelID, msg)
 
 		case "list":
-			if len(p.subs) < 1 {
+			if len(p.Subs) < 1 {
 				s.ChannelMessageSend(m.ChannelID, "No subscription found.")
 				return
 			}
 			var subs Subscriptions
-			for _, sub := range p.subs {
+			for _, sub := range p.Subs {
 				subs = append(subs, sub)
 			}
 			sort.Sort(ByName{subs})
@@ -427,12 +424,13 @@ func (p *youtubePlugin) Load(data []byte) error {
 		fmt.Println("Error loading data", err)
 		return err
 	}
+
 	return nil
 }
 
 func (p *youtubePlugin) Cleanup() {
-	for _, s := range p.subs {
-		p.client.Unsubscribe(s.FeedUrl)
+	for _, sub := range p.Subs {
+		p.client.Unsubscribe(sub.FeedUrl)
 	}
 	time.Sleep(time.Second * 5)
 }

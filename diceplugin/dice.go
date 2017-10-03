@@ -28,10 +28,6 @@ func New() *dicePlugin {
 	return &pInstance
 }
 
-func (p *dicePlugin) HasSaves() bool {
-	return false
-}
-
 var validArg = `^(\d*?)d?(\d+)$`
 var re = regexp.MustCompile(validArg)
 
@@ -78,15 +74,4 @@ func (p *dicePlugin) HandleMsg(cmd *botutils.Cmd, s *discordgo.Session, m *disco
 
 func (p *dicePlugin) Help() string {
 	return "roll a die"
-}
-
-func (p *dicePlugin) Save() []byte {
-	return nil
-}
-
-func (p *dicePlugin) Load(data []byte) error {
-	return nil
-}
-
-func (p *dicePlugin) Cleanup() {
 }

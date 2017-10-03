@@ -22,6 +22,7 @@ import (
 	"github.com/itokatsu/nanogo/tagplugin"
 	//	"github.com/itokatsu/nanogo/testplugin"
 	"github.com/itokatsu/nanogo/catplugin"
+	"github.com/itokatsu/nanogo/wolframplugin"
 	"github.com/itokatsu/nanogo/youtubeplugin"
 )
 
@@ -31,6 +32,7 @@ type ConfigKeys struct {
 	NASAKey    string `json:"nasa"`
 	GoogleKey  string `json:"google"`
 	YoutubeKey string `json:"youtube"`
+	WolframKey string `json:"wolfram"`
 	IP         string `json:"ip"`
 	Port       string `json:"port"`
 
@@ -78,7 +80,7 @@ func main() {
 	ph.Load(tagplugin.New())
 	ph.Load(catplugin.New())
 
-	//ph.Load(googleplugin.New(Cfg.GoogleKey))
+	ph.Load(wolframplugin.New(Cfg.WolframKey))
 	ph.Load(googleplugin.New(Cfg.GoogleKey))
 	ph.Load(youtubeplugin.New(Cfg.YoutubeKey, Cfg.IP, Cfg.Port))
 	defer ph.Save()

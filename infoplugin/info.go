@@ -20,10 +20,6 @@ func New(t time.Time) *infoPlugin {
 	return &pInstance
 }
 
-func (p *infoPlugin) HasSaves() bool {
-	return false
-}
-
 func (p *infoPlugin) Name() string {
 	return "info"
 }
@@ -75,15 +71,4 @@ func (p *infoPlugin) Help() string {
 	return `
 	!info - Some Info about me.
 	!uptime	`
-}
-
-func (p *infoPlugin) Save() []byte {
-	return nil
-}
-
-func (p *infoPlugin) Load(data []byte) error {
-	return nil
-}
-
-func (p *infoPlugin) Cleanup() {
 }
