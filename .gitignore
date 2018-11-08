@@ -1,8 +1,10 @@
 nanogo
+nanogo.exe
 bin/
 media/
 ./.backup/
 *.swp
 *.json
 *.filter
+*.md
 .saves

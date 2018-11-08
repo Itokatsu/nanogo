@@ -7,24 +7,25 @@ type Cmd struct {
 	Args []string
 }
 
-func ParseCmd(msg string, prefix string) (c Cmd) {
-
+func ParseCmd(msg string, prefixes ...string) (c Cmd) {
 	msg = strings.TrimSpace(msg)
-	if !strings.HasPrefix(strings.ToLower(msg),
-		strings.ToLower(prefix)) {
-		return
-	}
+	for _, p := range prefixes {
+		matched := strings.HasPrefix(strings.ToLower(msg),
+			strings.ToLower(p))
+		if matched {
+			// Build and return Cmd
+			msg = msg[len(p):]
+			f := strings.Fields(msg)
 
-	//Trim prefix
-	msg = msg[len(prefix):]
-	f := strings.Fields(msg)
-
-	length := len(msg)
-	if length > 1 {
-		c.Args = f[1:]
+			length := len(msg)
+			if length > 1 {
+				c.Args = f[1:]
+			}
+			if length > 0 {
+				c.Name = f[0]
+			}
+			return c
+		}
 	}
-	if length > 0 {
-		c.Name = f[0]
-	}
-	return c
+	return 
 }

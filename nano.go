@@ -7,6 +7,7 @@ import (
 	"math/rand"
 	"os"
 	"os/signal"
+	"path"
 	"syscall"
 	"time"
 
@@ -16,75 +17,104 @@ import (
 
 // plugins
 import (
-	"github.com/itokatsu/nanogo/diceplugin"
-	"github.com/itokatsu/nanogo/googleplugin"
-	"github.com/itokatsu/nanogo/infoplugin"
-	"github.com/itokatsu/nanogo/tagplugin"
+	"github.com/itokatsu/nanogo/plugin"
+
 	//	"github.com/itokatsu/nanogo/testplugin"
-	"github.com/itokatsu/nanogo/catplugin"
-	"github.com/itokatsu/nanogo/wolframplugin"
-	"github.com/itokatsu/nanogo/youtubeplugin"
+	"github.com/itokatsu/nanogo/plugin/catplugin"
+	"github.com/itokatsu/nanogo/plugin/diceplugin"
+	"github.com/itokatsu/nanogo/plugin/googleplugin"
+	"github.com/itokatsu/nanogo/plugin/infoplugin"
+	"github.com/itokatsu/nanogo/plugin/tagplugin"
+	"github.com/itokatsu/nanogo/plugin/wolframplugin"
+	"github.com/itokatsu/nanogo/plugin/youtubeplugin"
 )
 
 // various Auth Tokens and API Keys
 type ConfigKeys struct {
-	BotToken   string `json:"token"`
-	NASAKey    string `json:"nasa"`
-	GoogleKey  string `json:"google"`
-	YoutubeKey string `json:"youtube"`
-	WolframKey string `json:"wolfram"`
-	IP         string `json:"ip"`
-	Port       string `json:"port"`
-
-	TestingOnly bool   `json:"testing"`
-	TestChannel string `json:"testChannel"`
+	Bot     BotConfig     `json:"bot"`
+	Plugins PluginsConfig `json:"plugins"`
+}
+type BotConfig struct {
+	Token       string   `json:"token"`
+	Prefixes    []string `json:"prefixes,omitempty"`
+	SaveFolder  string   `json:"saveFolder,omitempty"`
+	TestingOnly bool     `json:"testing,omitempty"`
+	TestChannel string   `json:"testChannel,omitempty"`
+}
+type PluginsConfig struct {
+	Google  googleplugin.Config  `json:"google,omitempty"`
+	Youtube youtubeplugin.Config `json:"youtube,omitempty"`
+	Wolfram wolframplugin.Config `json:"wolfram,omitempty"`
 }
 
 // Global variables
+var DefaultConfig = BotConfig{
+	// No bot token => useless
+	Prefixes:    []string{"!"},
+	SaveFolder:  ".saves",
+	TestingOnly: false,
+}
+
 var (
-	ph        pluginHandler
-	CmdPrefix string
-	Cfg       ConfigKeys
-	StartTime time.Time
+	ph         *plugin.PluginHandler
+	Cfg        ConfigKeys
+	StartTime  time.Time
+	CmdPrefix  string
 )
 
 func loadConfig() {
-	file, err := ioutil.ReadFile("./config.json")
+	file, err := ioutil.ReadFile("./confignew.json")
 	if err != nil {
-		fmt.Println("fatal")
+		fmt.Println("Error: Config file not found")
 		os.Exit(1)
+		/*
+			fmt.Println("Loading default Config, some plugins will NOT start")
+			Cfg.Bot = DefaultConfig
+			return
+		*/
 	}
-	json.Unmarshal(file, &Cfg)
+	err = json.Unmarshal(file, &Cfg)
+	if err != nil {
+		fmt.Println("Error: Couldn't unmarshal config file")
+		os.Exit(1)
+		/*
+			fmt.Println("Loading default Config, some plugins will NOT start")
+			Cfg.Bot = DefaultConfig
+		*/
+	}
 }
 
 func init() {
-	CmdPrefix = "!"
+	// Load config file
 	loadConfig()
+	// Create plugin savestates folder
+	Cfg.Bot.SaveFolder = path.Join(".", Cfg.Bot.SaveFolder)
+	plugin.CreateSaveDir(Cfg.Bot.SaveFolder)
+	// Generate pseudo random seed
 	StartTime = time.Now()
 	rand.Seed(time.Now().UnixNano())
 }
 
 func main() {
-
 	// Create a new Discord session using the provided bot token.
-	dg, err := discordgo.New("Bot " + Cfg.BotToken)
+	dg, err := discordgo.New("Bot " + Cfg.Bot.Token)
 	if err != nil {
 		fmt.Println("error creating Discord session,", err)
 		return
 	}
 
 	// Load Plugins
-	ph.plugins = make(map[string]Plugin)
+	ph = plugin.CreateHandler()
 	ph.Load(infoplugin.New(StartTime))
 	ph.Load(diceplugin.New())
 	ph.Load(tagplugin.New())
 	ph.Load(catplugin.New())
 
-	ph.Load(wolframplugin.New(Cfg.WolframKey))
-	ph.Load(googleplugin.New(Cfg.GoogleKey))
-	ph.Load(youtubeplugin.New(Cfg.YoutubeKey, Cfg.IP, Cfg.Port))
-	defer ph.Save()
-
+	ph.Load(wolframplugin.New(Cfg.Plugins.Wolfram))
+	ph.Load(googleplugin.New(Cfg.Plugins.Google))
+	ph.Load(youtubeplugin.New(Cfg.Plugins.Youtube))
+	defer ph.SaveAll()
+	defer ph.CleanupAll()
 	// Register the messageCreate func as a callback for MessageCreate events.
 	dg.AddHandler(messageCreate)
 
@@ -96,7 +126,7 @@ func main() {
 	}
 	defer dg.Close()
 
-	// Wait here until CTRL-C or other term signal is received.
+	// Block until KILL
 	fmt.Println("Bot is now running.  Press CTRL-C to exit.")
 	sc := make(chan os.Signal, 1)
 	signal.Notify(sc, syscall.SIGINT, syscall.SIGTERM, os.Interrupt, os.Kill)
@@ -106,18 +136,18 @@ func main() {
 // This function will be called (due to AddHandler above) every time a new
 // message is created on any channel that the autenticated bot has access to.
 func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
-
-	// Ignore messages from bots
+	// Test channel only
+	if Cfg.Bot.TestingOnly && m.ChannelID != Cfg.Bot.TestChannel {
+		return
+	}
+	// Ignore messages from bots (and self)
 	if m.Author.ID == s.State.User.ID || m.Author.Bot {
 		return
 	}
-	// Test channel only
-	if Cfg.TestingOnly && m.ChannelID != Cfg.TestChannel {
-		return
-	}
-	if cmd := botutils.ParseCmd(m.Content, CmdPrefix); cmd.Name != "" {
-		//@TODO: use goroutines?
-		for _, p := range ph.plugins {
+	cmd := botutils.ParseCmd(m.Content, Cfg.Bot.Prefixes...)
+	if cmd.Name != "" {
+		// @TODO: use goroutines?
+		for _, p := range ph.GetPlugins() {
 			p.HandleMsg(&cmd, s, m)
 		}
 	}

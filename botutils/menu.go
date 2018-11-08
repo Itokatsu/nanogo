@@ -60,12 +60,12 @@ func (menu *Menu) activate(s *discordgo.Session) {
 }
 
 func (menu *Menu) onMessage(s *discordgo.Session, m *discordgo.MessageCreate) {
-	//ignore bots
-	if m.Author.ID == s.State.User.ID || m.Author.Bot {
-		return
-	}
 	//ignore other channels
 	if m.ChannelID != menu.channelID {
+		return
+	}
+	//ignore bots and self
+	if m.Author.ID == s.State.User.ID || m.Author.Bot {
 		return
 	}
 	//ignore non-numbers
