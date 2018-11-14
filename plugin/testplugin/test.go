@@ -20,10 +20,10 @@ func New(apiKey string) *googlePlugin, error {
 	pInstance.apiKey = apiKey
 	return &pInstance
 }
-func (p *googlePlugin) HasSaves() bool {
+func (p *testPlugin) HasData() bool {
 	return false
 }
-func (p *googlePlugin) Name() string {
+func (p *testPlugin) Name() string {
 	return "google"
 }
 

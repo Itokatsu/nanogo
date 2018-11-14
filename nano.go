@@ -24,6 +24,7 @@ import (
 	"github.com/itokatsu/nanogo/plugin/diceplugin"
 	"github.com/itokatsu/nanogo/plugin/googleplugin"
 	"github.com/itokatsu/nanogo/plugin/infoplugin"
+	"github.com/itokatsu/nanogo/plugin/jpplugin"
 	"github.com/itokatsu/nanogo/plugin/tagplugin"
 	"github.com/itokatsu/nanogo/plugin/wolframplugin"
 	"github.com/itokatsu/nanogo/plugin/youtubeplugin"
@@ -45,6 +46,7 @@ type PluginsConfig struct {
 	Google  googleplugin.Config  `json:"google,omitempty"`
 	Youtube youtubeplugin.Config `json:"youtube,omitempty"`
 	Wolfram wolframplugin.Config `json:"wolfram,omitempty"`
+	Jp      jpplugin.Config      `json:"japanese,omitempty"`
 }
 
 // Global variables
@@ -56,10 +58,10 @@ var DefaultConfig = BotConfig{
 }
 
 var (
-	ph         *plugin.PluginHandler
-	Cfg        ConfigKeys
-	StartTime  time.Time
-	CmdPrefix  string
+	ph        *plugin.PluginHandler
+	Cfg       ConfigKeys
+	StartTime time.Time
+	CmdPrefix string
 )
 
 func loadConfig() {
@@ -105,16 +107,18 @@ func main() {
 
 	// Load Plugins
 	ph = plugin.CreateHandler()
-	ph.Load(infoplugin.New(StartTime))
-	ph.Load(diceplugin.New())
-	ph.Load(tagplugin.New())
-	ph.Load(catplugin.New())
+	go ph.Start(infoplugin.New(StartTime))
+	go ph.Start(diceplugin.New())
+	go ph.Start(tagplugin.New())
+	go ph.Start(catplugin.New())
 
-	ph.Load(wolframplugin.New(Cfg.Plugins.Wolfram))
-	ph.Load(googleplugin.New(Cfg.Plugins.Google))
-	ph.Load(youtubeplugin.New(Cfg.Plugins.Youtube))
+	go ph.Start(wolframplugin.New(Cfg.Plugins.Wolfram))
+	go ph.Start(googleplugin.New(Cfg.Plugins.Google))
+	go ph.Start(youtubeplugin.New(Cfg.Plugins.Youtube))
+	go ph.Start(jpplugin.New(Cfg.Plugins.Jp))
 	defer ph.SaveAll()
 	defer ph.CleanupAll()
+
 	// Register the messageCreate func as a callback for MessageCreate events.
 	dg.AddHandler(messageCreate)
 
@@ -146,9 +150,8 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 	}
 	cmd := botutils.ParseCmd(m.Content, Cfg.Bot.Prefixes...)
 	if cmd.Name != "" {
-		// @TODO: use goroutines?
 		for _, p := range ph.GetPlugins() {
-			p.HandleMsg(&cmd, s, m)
+			go p.HandleMsg(&cmd, s, m)
 		}
 	}
 }

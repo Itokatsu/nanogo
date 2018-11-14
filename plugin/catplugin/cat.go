@@ -14,13 +14,17 @@ type catPlugin struct {
 	name string
 }
 
+func New() (*catPlugin, error) {
+	var pInstance catPlugin
+	return &pInstance, nil
+}
+
 func (p *catPlugin) Name() string {
 	return "cat"
 }
 
-func New() (*catPlugin, error) {
-	var pInstance catPlugin
-	return &pInstance, nil
+func (p *catPlugin) HasData() bool {
+	return false
 }
 
 type Response struct {

@@ -10,11 +10,11 @@
 package googleplugin
 
 import (
+	"errors"
 	"fmt"
 	"net/url"
 	"strconv"
 	"strings"
-	"errors"
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/itokatsu/nanogo/botutils"
@@ -43,6 +43,10 @@ func New(cfg Config) (*googlePlugin, error) {
 
 func (p *googlePlugin) Name() string {
 	return "google"
+}
+
+func (p *googlePlugin) HasData() bool {
+	return false
 }
 
 type SearchResults struct {

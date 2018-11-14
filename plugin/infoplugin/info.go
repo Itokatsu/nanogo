@@ -23,6 +23,10 @@ func (p *infoPlugin) Name() string {
 	return "info"
 }
 
+func (p *infoPlugin) HasData() bool {
+	return false
+}
+
 func (p *infoPlugin) HandleMsg(cmd *botutils.Cmd, s *discordgo.Session, m *discordgo.MessageCreate) {
 	switch strings.ToLower(cmd.Name) {
 	case "uptime":
@@ -50,7 +54,5 @@ func (p *infoPlugin) HandleMsg(cmd *botutils.Cmd, s *discordgo.Session, m *disco
 }
 
 func (p *infoPlugin) Help() string {
-	return `
-	!info - Some Info about me.
-	!uptime	`
+	return ``
 }

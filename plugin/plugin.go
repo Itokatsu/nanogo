@@ -1,6 +1,7 @@
 package plugin
 
 import (
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -16,11 +17,7 @@ type Plugin interface {
 	HandleMsg(cmd *botutils.Cmd, s *discordgo.Session, m *discordgo.MessageCreate)
 	Help() string
 	Name() string
-}
-
-type HasSave interface {
-	Load([]byte) error
-	Save() []byte
+	HasData() bool
 }
 
 type HasCleanup interface {
@@ -30,18 +27,8 @@ type HasCleanup interface {
 // Global variable
 var SaveDir string
 
-// plugin Handler
-type PluginHandler struct {
-	plugins 	map[string]Plugin
-}
-
-func CreateHandler() *PluginHandler {
-	var handler PluginHandler
-	handler.plugins = make(map[string]Plugin)
-	return &handler
-}
-
 func CreateSaveDir(saveDir string) {
+	// into global var
 	SaveDir = saveDir
 	if _, err := os.Stat(saveDir); os.IsNotExist(err) {
 		err := os.Mkdir(saveDir, 0777)
@@ -55,53 +42,41 @@ func getSavefile(p Plugin) string {
 	return path.Join(SaveDir, p.Name())
 }
 
-func (ph *PluginHandler) GetPlugins() map[string]Plugin {
-	return ph.plugins
-}
-
-func (ph *PluginHandler) Load(p Plugin, err error) Plugin {
-	// Handle plugins that failed to initialize
-	if err != nil {
-		fmt.Printf("! Plugin '%v' failed \n", p.Name())
+// Load a plugin state
+func Load(p Plugin) error {
+	if !p.HasData() {
 		return nil
 	}
-
-	// Start plugins with no savefile
-	psl, ok := p.(HasSave)
-	if !ok {
-		return ph.Start(p)
-	}
-	// Read savefile
 	filename := getSavefile(p)
 	content, err := ioutil.ReadFile(filename)
 	if err != nil {
-		return ph.Start(p)
+		fmt.Println("Couldn't open savefile")
+		return err
 	}
-	// load savefile
-	if err := psl.Load(content); err != nil {
-		return ph.Start(p)
+	if content == nil {
+		fmt.Println("No data to load")
+		return fmt.Errorf("No data")
 	}
-	fmt.Printf("+ Plugin '%v' loaded \n", p.Name())
-	return ph.Start(p)
+	err2 := json.Unmarshal(content, &p)
+	if err2 != nil {
+		fmt.Println("Error loading data", err)
+		return err
+	}
+	return nil
 }
 
-func (ph *PluginHandler) Start(p Plugin) Plugin {
-	ph.plugins[p.Name()] = p
-	fmt.Printf("+ Plugin '%v' started \n", p.Name())
-	return p
-}
-
+// Save a plugin state
 func Save(p Plugin) {
-	// test if plugin implements HasSave interface
-	psl, ok := p.(HasSave)
-	if !ok {
+	if !p.HasData() {
+		return
+	}
+	//get Data
+	data, err := json.Marshal(p)
+	if err != nil {
+		fmt.Println("error marshaling")
 		return
 	}
 	// retrieve data
-	data := psl.Save()
-	if data == nil {
-		return
-	}
 	filename := getSavefile(p)
 	if err := ioutil.WriteFile(filename, data, 0777); err != nil {
 		fmt.Printf("! Plugin '%v' Failed to save \n", p.Name())
@@ -110,12 +85,45 @@ func Save(p Plugin) {
 	fmt.Printf("* Plugin '%v' saved \n", p.Name())
 }
 
+/*
+Plugin Handler
+*/
+type PluginHandler struct {
+	plugins map[string]Plugin
+}
+
+func CreateHandler() *PluginHandler {
+	var handler PluginHandler
+	handler.plugins = make(map[string]Plugin)
+	return &handler
+}
+
+// Start a plugin and tries to load it
+func (ph *PluginHandler) Start(p Plugin, err error) {
+	// Handle plugins that failed to initialize
+	if err != nil {
+		fmt.Printf("! Plugin '%v' failed\n", p.Name())
+		return
+	}
+
+	Load(p)
+	ph.plugins[p.Name()] = p
+	fmt.Printf("+ Plugin '%v' started \n", p.Name())
+}
+
+// Get Plugins
+func (ph *PluginHandler) GetPlugins() map[string]Plugin {
+	return ph.plugins
+}
+
+// Save all plugins
 func (ph *PluginHandler) SaveAll() {
 	for _, p := range ph.plugins {
 		Save(p)
 	}
 }
 
+// Cleanup all plugins
 func (ph *PluginHandler) CleanupAll() {
 	// test if plugin implements HasCleanup interface
 	for _, p := range ph.plugins {

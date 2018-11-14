@@ -5,10 +5,10 @@
 package wolframplugin
 
 import (
+	"errors"
 	"fmt"
 	"net/url"
 	"strings"
-	"errors"
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/itokatsu/nanogo/botutils"
@@ -35,6 +35,10 @@ func New(cfg Config) (*wolframPlugin, error) {
 
 func (p *wolframPlugin) Name() string {
 	return "wolfram"
+}
+
+func (p *wolframPlugin) HasData() bool {
+	return false
 }
 
 type SearchResults struct {
@@ -131,10 +135,10 @@ func (p *wolframPlugin) HandleMsg(cmd *botutils.Cmd, s *discordgo.Session, m *di
 		url.RawQuery = qs.Encode()
 		resp := SearchResults{}
 		err := botutils.FetchJSON(url.String(), &resp)
-		result := resp.Res
 		if err != nil {
 			return
 		}
+		result := resp.Res
 		if !result.Success {
 			return
 		}

@@ -19,13 +19,17 @@ type dicePlugin struct {
 	name string
 }
 
+func New() (*dicePlugin, error) {
+	var pInstance dicePlugin
+	return &pInstance, nil
+}
+
 func (p *dicePlugin) Name() string {
 	return "dice"
 }
 
-func New() (*dicePlugin, error) {
-	var pInstance dicePlugin
-	return &pInstance, nil
+func (p *dicePlugin) HasData() bool {
+	return false
 }
 
 var validArg = `^(\d*?)d?(\d+)$`

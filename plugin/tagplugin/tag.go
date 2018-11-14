@@ -1,7 +1,10 @@
+// Nanobot Project
+//
+// custom commands plugin
+
 package tagplugin
 
 import (
-	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
@@ -31,6 +34,10 @@ func New() (*tagPlugin, error) {
 
 func (p *tagPlugin) Name() string {
 	return p.name
+}
+
+func (p *tagPlugin) HasData() bool {
+	return true
 }
 
 func (p *tagPlugin) HandleMsg(cmd *botutils.Cmd, s *discordgo.Session, m *discordgo.MessageCreate) {
@@ -137,26 +144,4 @@ func (p *tagPlugin) Help() string {
 	!label <key> : print mesasge corresponding to <key>
 	!!<key> : print message corresponding to <key>
 	`
-}
-
-func (p *tagPlugin) Save() []byte {
-	buf, err := json.Marshal(p)
-	if err != nil {
-		fmt.Println("error marshaling")
-		return nil
-	}
-	return buf
-}
-
-func (p *tagPlugin) Load(data []byte) error {
-	if data == nil {
-		fmt.Println("No data to load")
-		return fmt.Errorf("No data")
-	}
-	err := json.Unmarshal(data, &p)
-	if err != nil {
-		fmt.Println("Error loading data", err)
-		return err
-	}
-	return nil
 }

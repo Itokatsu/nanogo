@@ -2,26 +2,25 @@ package youtubeplugin
 
 import (
 	"bufio"
-	"encoding/json"
 	"encoding/xml"
+	"errors"
 	"fmt"
 	"log"
 	"os"
 	"sort"
-	"strconv"
 	"strings"
 	"time"
-	"errors"
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/dpup/gohubbub"
 	"github.com/itokatsu/nanogo/botutils"
+	"github.com/itokatsu/nanogo/plugin"
 )
 
 type Config struct {
-	ApiKey 	string `json:"apikey"`
-	Ip 		string `json:"ip"`
-	Port 	string `json:"port"`
+	ApiKey string `json:"apikey"`
+	Ip     string `json:"ip"`
+	Port   int    `json:"port"`
 }
 
 type youtubePlugin struct {
@@ -33,18 +32,21 @@ type youtubePlugin struct {
 }
 
 func New(cfg Config) (*youtubePlugin, error) {
-	if cfg.ApiKey == "" || cfg.Ip == "" || cfg.Port == "" {
+	if cfg.ApiKey == "" || cfg.Ip == "" || cfg.Port == 0 {
 		e := errors.New("Lacking config for plugin youtube")
 		return nil, e
 	}
 	var pInstance youtubePlugin
 	pInstance.name = "youtube"
 	pInstance.apiKey = cfg.ApiKey
-	pInstance.port, _ = strconv.Atoi(cfg.Port)
+	pInstance.port = cfg.Port
+
+	// HTTP Client for subscription notifications
 	addr := fmt.Sprintf("%v:%v", cfg.Ip, cfg.Port)
 	pInstance.client = gohubbub.NewClient(addr, "Nanogo")
+
 	pInstance.Subs = make(map[string]*Subscription)
-	go pInstance.client.StartAndServe("", pInstance.port)
+	go pInstance.client.StartAndServe("", cfg.Port)
 	return &pInstance, nil
 }
 
@@ -55,6 +57,14 @@ const off = 0
 
 func (p *youtubePlugin) Name() string {
 	return "youtube"
+}
+
+func (p *youtubePlugin) Help() string {
+	return "oupas"
+}
+
+func (p *youtubePlugin) HasData() bool {
+	return true
 }
 
 type Subscription struct {
@@ -97,14 +107,12 @@ type BySubs struct{ Subscriptions }
 func (s ByName) Less(i, j int) bool {
 	return s.Subscriptions[i].Channel.Snippet.Title < s.Subscriptions[j].Channel.Snippet.Title
 }
-
 func (s ByDate) Less(i, j int) bool {
 	return s.Subscriptions[i].AddedAt.Before(s.Subscriptions[j].AddedAt)
 }
 func (s ByUser) Less(i, j int) bool {
 	return s.Subscriptions[i].AddedBy.Username < s.Subscriptions[j].AddedBy.Username
 }
-
 func (s ByVids) Less(i, j int) bool {
 	return s.Subscriptions[i].Channel.Stats.VidCount < s.Subscriptions[j].Channel.Stats.VidCount
 }
@@ -183,6 +191,7 @@ type Entry struct {
 	Updated   time.Time `xml:"updated"`
 }
 
+// GetChannel Info
 func (p *youtubePlugin) GetChannelBy(fieldName string, searchTerm string) (YtChannel, error) {
 	url := "https://www.googleapis.com/youtube/v3/"
 	url += fmt.Sprintf("channels?part=snippet,statistics&%v=%v&key=%v", fieldName, searchTerm, p.apiKey)
@@ -197,6 +206,7 @@ func (p *youtubePlugin) GetChannelBy(fieldName string, searchTerm string) (YtCha
 	return result.Items[0], nil
 }
 
+// Get Video info from Youtube API
 func (p *youtubePlugin) GetVideo(id string) (YtVideo, error) {
 	url := "https://www.googleapis.com/youtube/v3/"
 	url += fmt.Sprintf("videos?part=snippet&id=%v&key=%v", id, p.apiKey)
@@ -319,6 +329,7 @@ func (p *youtubePlugin) HandleMsg(cmd *botutils.Cmd, s *discordgo.Session, m *di
 				}
 				sub.NotifChannelIDs = append(sub.NotifChannelIDs, notif)
 				s.ChannelMessageSend(m.ChannelID, sub.Channel.Details())
+				plugin.Save(p)
 				return
 			}
 			//Build Subscription
@@ -337,6 +348,7 @@ func (p *youtubePlugin) HandleMsg(cmd *botutils.Cmd, s *discordgo.Session, m *di
 				s.ChannelMessageSend(m.ChannelID, err.Error())
 				return
 			}
+			plugin.Save(p)
 			s.ChannelMessageSend(m.ChannelID, sub.Channel.Details())
 
 		case "unsub":
@@ -353,9 +365,10 @@ func (p *youtubePlugin) HandleMsg(cmd *botutils.Cmd, s *discordgo.Session, m *di
 				s.ChannelMessageSend(m.ChannelID, "You cannot do that :nano:")
 				return
 			}
-			msg := fmt.Sprintf("Unsubscribed from %v", subs[0].Channel.Snippet.Title)
 			p.client.Unsubscribe(subs[0].FeedUrl)
 			delete(p.Subs, subs[0].Channel.Id)
+			plugin.Save(p)
+			msg := fmt.Sprintf("Unsubscribed from %v", subs[0].Channel.Snippet.Title)
 			s.ChannelMessageSend(m.ChannelID, msg)
 			return
 
@@ -388,6 +401,7 @@ func (p *youtubePlugin) HandleMsg(cmd *botutils.Cmd, s *discordgo.Session, m *di
 				}
 			}
 			s.ChannelMessageSend(m.ChannelID, msg)
+			plugin.Save(p)
 
 		case "list":
 			if len(p.Subs) < 1 {
@@ -410,30 +424,6 @@ func (p *youtubePlugin) HandleMsg(cmd *botutils.Cmd, s *discordgo.Session, m *di
 			s.ChannelMessageSend(m.ChannelID, msg)
 		}
 	}
-}
-
-func (p *youtubePlugin) Help() string {
-	return "oupas"
-}
-
-func (p *youtubePlugin) Save() []byte {
-	buf, err := json.Marshal(*p)
-	if err != nil {
-		fmt.Errorf("Failed to convert plugin state to json")
-	}
-	return buf
-}
-
-func (p *youtubePlugin) Load(data []byte) error {
-	if data == nil {
-		return fmt.Errorf("no data")
-	}
-	err := json.Unmarshal(data, &p)
-	if err != nil {
-		fmt.Println("Error loading data", err)
-		return err
-	}
-	return nil
 }
 
 func (p *youtubePlugin) Cleanup() {
