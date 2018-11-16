@@ -46,7 +46,7 @@ type PluginsConfig struct {
 	Google  googleplugin.Config  `json:"google,omitempty"`
 	Youtube youtubeplugin.Config `json:"youtube,omitempty"`
 	Wolfram wolframplugin.Config `json:"wolfram,omitempty"`
-	Jp      jpplugin.Config      `json:"japanese,omitempty"`
+	//Jp      jpplugin.Config      `json:"japanese,omitempty"`
 }
 
 // Global variables
