@@ -24,7 +24,7 @@ import (
 	"github.com/itokatsu/nanogo/plugin/diceplugin"
 	"github.com/itokatsu/nanogo/plugin/googleplugin"
 	"github.com/itokatsu/nanogo/plugin/infoplugin"
-	"github.com/itokatsu/nanogo/plugin/jpplugin"
+	//"github.com/itokatsu/nanogo/plugin/jpplugin"
 	"github.com/itokatsu/nanogo/plugin/tagplugin"
 	"github.com/itokatsu/nanogo/plugin/wolframplugin"
 	"github.com/itokatsu/nanogo/plugin/youtubeplugin"
@@ -115,7 +115,7 @@ func main() {
 	go ph.Start(wolframplugin.New(Cfg.Plugins.Wolfram))
 	go ph.Start(googleplugin.New(Cfg.Plugins.Google))
 	go ph.Start(youtubeplugin.New(Cfg.Plugins.Youtube))
-	go ph.Start(jpplugin.New(Cfg.Plugins.Jp))
+	//go ph.Start(jpplugin.New(Cfg.Plugins.Jp))
 	defer ph.SaveAll()
 	defer ph.CleanupAll()
 

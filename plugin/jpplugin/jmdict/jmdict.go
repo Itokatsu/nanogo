@@ -2,10 +2,12 @@ package jmdict
 
 import (
 	"encoding/xml"
-	"io"
+	"regexp"
+	"fmt"
+	"os"
 )
 
-type JMdict struct {
+type Dict struct {
 	Entries []Entry `xml:"entry"`
 }
 
@@ -229,26 +231,69 @@ var Entities = map[string]string{
 	"anat":      "anatomical term",
 }
 
-func LoadFromFile(file string) (*JMdict, error) {
-	file, err := os.Open(cfg.JMdict)
-	defer file.Close()
+func Load(file string) (*Dict, error) {
+	f, err := os.Open(file)
+	defer f.Close()
 	if err != nil {
 		return nil, err
 	}
-	dict, err2 := jmdict.Load(file)
-	if err2 != nil {
-		return nil, err2
+	dict := &Dict{}
+	dec := xml.NewDecoder(f)
+	dec.Entity = Entities
+	if err = dec.Decode(dict); err != nil {
+		return nil, err
 	}
 	return dict, nil
 }
 
-// Load creates a dictionary from a given reader
-func Load(r io.Reader) (*JMdict, error) {
-	dict := &JMdict{}
-	dec := xml.NewDecoder(r)
-	dec.Entity = Entities
-	if err := dec.Decode(d); err != nil {
+func (d *Dict) Lookup(query string) (results []DictEntry) {
+	for _, entry := range d.Entries {
+		for _, kanji := range entry.KanjiElements {
+			if query == kanji.Phrase {
+				results = append(results, entry)
+				continue
+			}
+		}
+		for _, reading := range entry.ReadingElements {
+			if query == reading.Phrase ||
+				query == reading.PhraseNoKanji {
+					results = append(results, entry)
+				}
+		}
+	}
+	return results
+}
+
+func (d *Dict) LookupRe(expr string) (results []DictEntry, err error) {
+	re, err := regexp.Compile(expr)
+	if err != nil {
 		return nil, err
 	}
-	return dict, nil
+	for _, entry := range d.Entries {
+		for _, kanji := range entry.KanjiElements {
+			if re.MatchString(kanji.Phrase) {
+				results = append(results, entry)
+				continue
+			}
+		}
+		for _, reading := range entry.ReadingElements {
+			if re.MatchString(reading.Phrase) || 
+				re.MatchString(reading.PhraseNoKanji) {
+					results = append(results, entry)
+				}
+		}
+	}
+	return results, nil
+}
+
+func (e Entry) String() string {
+	if len(e.KanjiElements) > 1 {
+		return e.KanjiElements[0].Phrase
+	}
+	return e.ReadingElements[0].Phrase
+}
+
+func (e Entry) Details() string {
+	// fuck
+	return fmt.Sprintf("%+v", e.Senses)
 }

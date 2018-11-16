@@ -14,6 +14,7 @@ import (
 	"regexp"
 
 	"fmt"
+	"github.com/itokatsu/nanogo/botutils"
 )
 
 type Dict struct {
@@ -24,9 +25,6 @@ type Dict struct {
 type Entry struct {
 	Heading string
 	Reading string
-	Unknown string
-	POS     string
-	Zero    float64
 	Def     []interface{}
 }
 
@@ -38,13 +36,12 @@ func (e Entry) Details() string {
 	return e.Def[0].(string)
 }
 
-func (ep *Dict) Lookup(query string) (results []Entry) {
+func (ep *Dict) Lookup(query string) (results []botutils.DictEntry) {
 	for _, e := range ep.Entries {
 		if e.Heading == query {
 			results = append(results, e)
 			continue
 		}
-		// reading
 		if e.Reading == query {
 			results = append(results, e)
 		}
@@ -52,18 +49,16 @@ func (ep *Dict) Lookup(query string) (results []Entry) {
 	return results
 }
 
-func (ep *Dict) LookupRe(expr string) (results []Entry, err error) {
+func (ep *Dict) LookupRe(expr string) (results []botutils.DictEntry, err error) {
 	re, err := regexp.Compile(expr)
 	if err != nil {
 		return nil, err
 	}
 	for _, e := range ep.Entries {
-		// heading
 		if re.MatchString(e.Heading) {
 			results = append(results, e)
 			continue
 		}
-		// reading
 		if re.MatchString(e.Reading) {
 			results = append(results, e)
 		}
@@ -71,10 +66,10 @@ func (ep *Dict) LookupRe(expr string) (results []Entry, err error) {
 	return results, nil
 }
 
-func LoadDir(dir string) (*Dict, error) {
+// Load from directory
+func Load(dir string) (*Dict, error) {
 	d := &Dict{}
 	d.Name = filepath.Base(dir)
-	fmt.Printf(dir)
 
 	files, err := filepath.Glob(dir + "/term_bank_*.json")
 	if err != nil {
@@ -97,9 +92,6 @@ func TypeEntry(i []interface{}) Entry {
 	e := Entry{}
 	e.Heading = i[0].(string)
 	e.Reading = i[1].(string)
-	e.Unknown = i[2].(string)
-	e.POS = i[3].(string)
-	e.Zero = i[4].(float64)
 	e.Def = i[5].([]interface{})
 	return e
 }
@@ -111,22 +103,8 @@ func LoadEntries(r io.Reader, d *Dict) error {
 		fmt.Printf("%v", err)
 		return err
 	}
-
 	for _, e := range garbage {
 		d.Entries = append(d.Entries, TypeEntry(e))
 	}
 	return nil
 }
-
-/*
-func Load(r io.Reader) (*Dict, error) {
-	d := &Dict{}
-	dec := xml.NewDecoder(r)
-	dec.Entity = Entities
-	if err := dec.Decode(d); err != nil {
-		return nil, err
-	}
-
-	return d, nil
-}
-*/

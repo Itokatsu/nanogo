@@ -1,20 +1,18 @@
 package jpplugin
 
 import (
-	"strings"
-	//"os"
 	"fmt"
 	"time"
+	"errors"
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/itokatsu/nanogo/botutils"
-	//"github.com/itokatsu/nanogo/plugin/jpplugin/jmdict"
+	"github.com/itokatsu/nanogo/plugin/jpplugin/jmdict"
 	"github.com/itokatsu/nanogo/plugin/jpplugin/epwing"
 )
 
 type jpPlugin struct {
-	//jmdict *jmdict.JMdict
-	daijirin *epwing.Dict
+	dicts map[string]Dict
 }
 
 type Config struct {
@@ -24,28 +22,29 @@ type Config struct {
 }
 
 func New(cfg Config) (*jpPlugin, error) {
-	var pInstance jpPlugin
+	var p jpPlugin
 
-	/*tests := []string{"おくじょう", "臆病", "かみ"}
-	testsre := []string{".ぬ", "(.)\\1しい"}*/
+	p.dicts = make(map[string]Dict)
+	//jmdict
+	if dict, err := jmdict.Load(cfg.JMdict);
+		err == nil {
+		p.dicts["j"] = dict
+	}
+	//daijirin
+	if dict, err := epwing.Load(cfg.Daijirin); 
+		err == nil {
+		p.dicts["dj"] = dict
+	}
+	//kenkyusha
+	if dict, err := epwing.Load(cfg.Kenkyusha);
+		err == nil {
+		p.dicts["kks"] = dict
+	}
 
-	//pInstance.jmdict = jmdict.LoadFromFile(cfg.JMdict)
-	pInstance.daijirin, _ = epwing.LoadDir(cfg.Daijirin)
-
-	/*
-		var results []epwing.Entry
-		for _, t := range tests {
-			//results = pInstance.jmdict.Lookup(t)
-			results = pInstance.daijirin.Lookup(t)
-			fmt.Printf("%v", results)
-		}
-		for _, tr := range testsre {
-			//results = pInstance.jmdict.Lookup(t)
-			results, err := pInstance.daijirin.LookupRe(tr)
-			if err != nil { continue }
-			fmt.Printf("%v", results)
-		}*/
-	return &pInstance, nil
+	if len(p.dicts) < 1 {
+		return nil, errors.New("no dictionary loaded")
+	}
+	return &p, nil
 }
 
 func (p *jpPlugin) Name() string {
@@ -64,25 +63,30 @@ func (p *jpPlugin) HandleMsg(cmd *botutils.Cmd, s *discordgo.Session, m *discord
 	if len(cmd.Args) < 1 {
 		return
 	}
-	query := cmd.Args[0]
-	var results []epwing.Entry
-	var err error
-	switch strings.ToLower(cmd.Name) {
-	case "dj":
-		results = p.daijirin.Lookup(query)
 
-	case "djr":
-		results, err = p.daijirin.LookupRe(query)
-		if err != nil {
-			return
+	/*switch strings.ToLower(cmd.Name) {
+	}*/
+
+	// Lookups
+	var results []DictEntry
+	for key, dict := range p.dicts {
+		if key == cmd.Name {
+			results = dict.Lookup(cmd.Args[0])
+			break
+		}
+		if key + "r" == cmd.Name {
+			results, _ = dict.LookupRe(cmd.Args[0])
+			break
 		}
 	}
+
 	n := len(results)
 	if n < 1 {
 		return
 	}
 	if n == 1 {
-		s.ChannelMessageSend(m.ChannelID, results[0].Details())
+		botutils.Send(s, m.ChannelID, results[0].Details())
+		return
 	}
 	if n > 25 {
 		results = results[:25]
@@ -92,32 +96,17 @@ func (p *jpPlugin) HandleMsg(cmd *botutils.Cmd, s *discordgo.Session, m *discord
 	for i, v := range results {
 		resultsStr[i] = fmt.Stringer(v)
 	}
-	s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("%d Results (in %v) : ", n, time.Since(now)))
+	s.ChannelMessageSend(m.ChannelID, 
+		fmt.Sprintf("%d Results (in %v) : ", n, time.Since(now)))
 	botutils.NewMenu(s, resultsStr, " | ", m.ChannelID, func(strger fmt.Stringer) {
+		/*
+		type assert
+		*/
 		e := epwing.Entry{}
 		e = strger.(epwing.Entry)
-		s.ChannelMessageSend(m.ChannelID, e.Details())
+		botutils.Send(s, m.ChannelID, e.Details())
 	})
 }
-
-/*func (p *jpPlugin) searchJMDict(query string) (results []jmdict.Entry) {
-	now := time.Now()
-	for _, entry := range p.jmdict.Entries {
-		for _, kanji := range entry.KanjiElements {
-			if query == kanji.Phrase {
-				results = append(results, entry)
-				continue
-			}
-		}
-		for _, reading := range entry.ReadingElements {
-			if query == reading.Phrase ||
-				query == reading.PhraseNoKanji {
-					results = append(results, entry)
-				}
-		}
-	}
-	fmt.Printf("%v", time.Since(now))
-}*/
 
 func (p *jpPlugin) Help() string {
 	return `
