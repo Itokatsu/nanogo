@@ -6,7 +6,6 @@ package wolframplugin
 
 import (
 	"errors"
-	"fmt"
 	"net/url"
 	"strings"
 
@@ -113,11 +112,15 @@ func (p *wolframPlugin) HandleMsg(cmd *botutils.Cmd, s *discordgo.Session, m *di
 		if err != nil {
 			return
 		}
-		result := resp.Res
-		c := botutils.NewMenu(s, result.Pods, " | ", m.ChannelID)
+		results := resp.Res.Pods
+		c, err := botutils.NewMenu(s, results, " | ", m.ChannelID)
+		if err != nil {
+			return
+		}
 
 		go func() {
-			for pod := range c {
+			for resp := range c {
+				pod := resp.(Pod)
 				pod.Display(s, m.ChannelID)
 			}
 		}()

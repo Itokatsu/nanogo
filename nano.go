@@ -26,7 +26,7 @@ import (
 	"github.com/itokatsu/nanogo/plugin/infoplugin"
 	"github.com/itokatsu/nanogo/plugin/jpplugin"
 	"github.com/itokatsu/nanogo/plugin/tagplugin"
-	//"github.com/itokatsu/nanogo/plugin/wolframplugin"
+	"github.com/itokatsu/nanogo/plugin/wolframplugin"
 	"github.com/itokatsu/nanogo/plugin/youtubeplugin"
 )
 
@@ -45,8 +45,8 @@ type BotConfig struct {
 type PluginsConfig struct {
 	Google  googleplugin.Config  `json:"google,omitempty"`
 	Youtube youtubeplugin.Config `json:"youtube,omitempty"`
-	//Wolfram wolframplugin.Config `json:"wolfram,omitempty"`
-	Jp jpplugin.Config `json:"japanese,omitempty"`
+	Wolfram wolframplugin.Config `json:"wolfram,omitempty"`
+	Jp      jpplugin.Config      `json:"japanese,omitempty"`
 }
 
 // Global variables
@@ -103,7 +103,7 @@ func main() {
 	go ph.Start(tagplugin.New())
 	go ph.Start(catplugin.New())
 
-	//go ph.Start(wolframplugin.New(Cfg.Plugins.Wolfram))
+	go ph.Start(wolframplugin.New(Cfg.Plugins.Wolfram))
 	go ph.Start(googleplugin.New(Cfg.Plugins.Google))
 	go ph.Start(youtubeplugin.New(Cfg.Plugins.Youtube))
 	go ph.Start(jpplugin.New(Cfg.Plugins.Jp))
