@@ -24,13 +24,13 @@ import (
 	"github.com/itokatsu/nanogo/plugin/diceplugin"
 	"github.com/itokatsu/nanogo/plugin/googleplugin"
 	"github.com/itokatsu/nanogo/plugin/infoplugin"
-	//"github.com/itokatsu/nanogo/plugin/jpplugin"
+	"github.com/itokatsu/nanogo/plugin/jpplugin"
 	"github.com/itokatsu/nanogo/plugin/tagplugin"
-	"github.com/itokatsu/nanogo/plugin/wolframplugin"
+	//"github.com/itokatsu/nanogo/plugin/wolframplugin"
 	"github.com/itokatsu/nanogo/plugin/youtubeplugin"
 )
 
-// various Auth Tokens and API Keys
+// Config file
 type ConfigKeys struct {
 	Bot     BotConfig     `json:"bot"`
 	Plugins PluginsConfig `json:"plugins"`
@@ -45,8 +45,8 @@ type BotConfig struct {
 type PluginsConfig struct {
 	Google  googleplugin.Config  `json:"google,omitempty"`
 	Youtube youtubeplugin.Config `json:"youtube,omitempty"`
-	Wolfram wolframplugin.Config `json:"wolfram,omitempty"`
-	//Jp      jpplugin.Config      `json:"japanese,omitempty"`
+	//Wolfram wolframplugin.Config `json:"wolfram,omitempty"`
+	Jp jpplugin.Config `json:"japanese,omitempty"`
 }
 
 // Global variables
@@ -65,24 +65,15 @@ var (
 )
 
 func loadConfig() {
-	file, err := ioutil.ReadFile("./confignew.json")
+	file, err := ioutil.ReadFile("./config.json")
 	if err != nil {
 		fmt.Println("Error: Config file not found")
 		os.Exit(1)
-		/*
-			fmt.Println("Loading default Config, some plugins will NOT start")
-			Cfg.Bot = DefaultConfig
-			return
-		*/
 	}
 	err = json.Unmarshal(file, &Cfg)
 	if err != nil {
 		fmt.Println("Error: Couldn't unmarshal config file")
 		os.Exit(1)
-		/*
-			fmt.Println("Loading default Config, some plugins will NOT start")
-			Cfg.Bot = DefaultConfig
-		*/
 	}
 }
 
@@ -112,10 +103,10 @@ func main() {
 	go ph.Start(tagplugin.New())
 	go ph.Start(catplugin.New())
 
-	go ph.Start(wolframplugin.New(Cfg.Plugins.Wolfram))
+	//go ph.Start(wolframplugin.New(Cfg.Plugins.Wolfram))
 	go ph.Start(googleplugin.New(Cfg.Plugins.Google))
 	go ph.Start(youtubeplugin.New(Cfg.Plugins.Youtube))
-	//go ph.Start(jpplugin.New(Cfg.Plugins.Jp))
+	go ph.Start(jpplugin.New(Cfg.Plugins.Jp))
 	defer ph.SaveAll()
 	defer ph.CleanupAll()
 

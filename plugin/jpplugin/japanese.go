@@ -1,18 +1,19 @@
 package jpplugin
 
 import (
+	"errors"
 	"fmt"
 	"time"
-	"errors"
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/itokatsu/nanogo/botutils"
-	"github.com/itokatsu/nanogo/plugin/jpplugin/jmdict"
 	"github.com/itokatsu/nanogo/plugin/jpplugin/epwing"
+	"github.com/itokatsu/nanogo/plugin/jpplugin/jmdict"
+	"github.com/itokatsu/nanogo/plugin/jpplugin/jp"
 )
 
 type jpPlugin struct {
-	dicts map[string]Dict
+	dicts map[string]jp.Dict
 }
 
 type Config struct {
@@ -24,20 +25,17 @@ type Config struct {
 func New(cfg Config) (*jpPlugin, error) {
 	var p jpPlugin
 
-	p.dicts = make(map[string]Dict)
+	p.dicts = make(map[string]jp.Dict)
 	//jmdict
-	if dict, err := jmdict.Load(cfg.JMdict);
-		err == nil {
+	if dict, err := jmdict.Load(cfg.JMdict); err == nil {
 		p.dicts["j"] = dict
 	}
 	//daijirin
-	if dict, err := epwing.Load(cfg.Daijirin); 
-		err == nil {
+	if dict, err := epwing.Load(cfg.Daijirin); err == nil {
 		p.dicts["dj"] = dict
 	}
 	//kenkyusha
-	if dict, err := epwing.Load(cfg.Kenkyusha);
-		err == nil {
+	if dict, err := epwing.Load(cfg.Kenkyusha); err == nil {
 		p.dicts["kks"] = dict
 	}
 
@@ -68,13 +66,13 @@ func (p *jpPlugin) HandleMsg(cmd *botutils.Cmd, s *discordgo.Session, m *discord
 	}*/
 
 	// Lookups
-	var results []DictEntry
+	var results []jp.DictEntry
 	for key, dict := range p.dicts {
 		if key == cmd.Name {
 			results = dict.Lookup(cmd.Args[0])
 			break
 		}
-		if key + "r" == cmd.Name {
+		if key+"r" == cmd.Name {
 			results, _ = dict.LookupRe(cmd.Args[0])
 			break
 		}
@@ -92,20 +90,20 @@ func (p *jpPlugin) HandleMsg(cmd *botutils.Cmd, s *discordgo.Session, m *discord
 		results = results[:25]
 	}
 
-	resultsStr := make([]fmt.Stringer, len(results))
-	for i, v := range results {
-		resultsStr[i] = fmt.Stringer(v)
-	}
-	s.ChannelMessageSend(m.ChannelID, 
+	s.ChannelMessageSend(m.ChannelID,
 		fmt.Sprintf("%d Results (in %v) : ", n, time.Since(now)))
-	botutils.NewMenu(s, resultsStr, " | ", m.ChannelID, func(strger fmt.Stringer) {
-		/*
-		type assert
-		*/
-		e := epwing.Entry{}
-		e = strger.(epwing.Entry)
-		botutils.Send(s, m.ChannelID, e.Details())
-	})
+
+	c, err := botutils.NewMenu(s, results, " | ", m.ChannelID)
+	if err != nil {
+		fmt.Printf(err.Error())
+	}
+	go func() {
+		for e := range c {
+			entry := e.(jp.DictEntry)
+			botutils.Send(s, m.ChannelID, entry.Details())
+		}
+	}()
+
 }
 
 func (p *jpPlugin) Help() string {

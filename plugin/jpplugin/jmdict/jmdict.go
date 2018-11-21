@@ -2,9 +2,11 @@ package jmdict
 
 import (
 	"encoding/xml"
-	"regexp"
 	"fmt"
 	"os"
+	"regexp"
+
+	"github.com/itokatsu/nanogo/plugin/jpplugin/jp"
 )
 
 type Dict struct {
@@ -233,10 +235,10 @@ var Entities = map[string]string{
 
 func Load(file string) (*Dict, error) {
 	f, err := os.Open(file)
-	defer f.Close()
 	if err != nil {
 		return nil, err
 	}
+	defer f.Close()
 	dict := &Dict{}
 	dec := xml.NewDecoder(f)
 	dec.Entity = Entities
@@ -246,7 +248,7 @@ func Load(file string) (*Dict, error) {
 	return dict, nil
 }
 
-func (d *Dict) Lookup(query string) (results []DictEntry) {
+func (d *Dict) Lookup(query string) (results []jp.DictEntry) {
 	for _, entry := range d.Entries {
 		for _, kanji := range entry.KanjiElements {
 			if query == kanji.Phrase {
@@ -257,14 +259,14 @@ func (d *Dict) Lookup(query string) (results []DictEntry) {
 		for _, reading := range entry.ReadingElements {
 			if query == reading.Phrase ||
 				query == reading.PhraseNoKanji {
-					results = append(results, entry)
-				}
+				results = append(results, entry)
+			}
 		}
 	}
 	return results
 }
 
-func (d *Dict) LookupRe(expr string) (results []DictEntry, err error) {
+func (d *Dict) LookupRe(expr string) (results []jp.DictEntry, err error) {
 	re, err := regexp.Compile(expr)
 	if err != nil {
 		return nil, err
@@ -277,10 +279,10 @@ func (d *Dict) LookupRe(expr string) (results []DictEntry, err error) {
 			}
 		}
 		for _, reading := range entry.ReadingElements {
-			if re.MatchString(reading.Phrase) || 
+			if re.MatchString(reading.Phrase) ||
 				re.MatchString(reading.PhraseNoKanji) {
-					results = append(results, entry)
-				}
+				results = append(results, entry)
+			}
 		}
 	}
 	return results, nil

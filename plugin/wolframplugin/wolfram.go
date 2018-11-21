@@ -114,14 +114,13 @@ func (p *wolframPlugin) HandleMsg(cmd *botutils.Cmd, s *discordgo.Session, m *di
 			return
 		}
 		result := resp.Res
-		strers := make([]fmt.Stringer, len(result.Pods))
-		for i, pod := range result.Pods {
-			strers[i] = pod
-		}
-		botutils.NewMenu(s, strers, " | ", m.ChannelID, func(strer fmt.Stringer) {
-			pod := strer.(Pod)
-			pod.Display(s, m.ChannelID)
-		})
+		c := botutils.NewMenu(s, result.Pods, " | ", m.ChannelID)
+
+		go func() {
+			for pod := range c {
+				pod.Display(s, m.ChannelID)
+			}
+		}()
 
 	//result pod only
 	case "war":

@@ -8,13 +8,13 @@ package epwing
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
 	"regexp"
 
-	"fmt"
-	"github.com/itokatsu/nanogo/botutils"
+	"github.com/itokatsu/nanogo/plugin/jpplugin/jp"
 )
 
 type Dict struct {
@@ -36,7 +36,7 @@ func (e Entry) Details() string {
 	return e.Def[0].(string)
 }
 
-func (ep *Dict) Lookup(query string) (results []botutils.DictEntry) {
+func (ep *Dict) Lookup(query string) (results []jp.DictEntry) {
 	for _, e := range ep.Entries {
 		if e.Heading == query {
 			results = append(results, e)
@@ -49,7 +49,7 @@ func (ep *Dict) Lookup(query string) (results []botutils.DictEntry) {
 	return results
 }
 
-func (ep *Dict) LookupRe(expr string) (results []botutils.DictEntry, err error) {
+func (ep *Dict) LookupRe(expr string) (results []jp.DictEntry, err error) {
 	re, err := regexp.Compile(expr)
 	if err != nil {
 		return nil, err

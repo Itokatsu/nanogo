@@ -34,7 +34,7 @@ func New(cfg Config) (*googlePlugin, error) {
 	var pInstance googlePlugin
 	if cfg.ApiKey == "" {
 		e := errors.New("no Apikey found for google")
-		return &pInstance, e
+		return nil, e
 	}
 	pInstance.apiKey = cfg.ApiKey
 	pInstance.lastReqs = make(map[string]*url.URL)
@@ -141,42 +141,43 @@ func (p *googlePlugin) HandleMsg(cmd *botutils.Cmd, s *discordgo.Session, m *dis
 
 	//more results
 	case "gm":
+		// get last request
 		url, ok := p.lastReqs[m.ChannelID]
 		if !ok {
 			return
 		}
 
+		// build new query url
 		qs := url.Query()
-		start, errConv := strconv.Atoi(qs.Get("start"))
-		if errConv != nil {
+		start, err := strconv.Atoi(qs.Get("start"))
+		if err != nil {
 			start = 1
 		}
-		offset, errConv2 := strconv.Atoi(qs.Get("num"))
-		if errConv2 != nil {
-			return
-		}
-
-		qs.Set("start", strconv.Itoa(start+offset))
-		qs.Set("num", "5")
-		url.RawQuery = qs.Encode()
-		results := SearchResults{}
-		err := botutils.FetchJSON(url.String(), &results)
+		offset, err := strconv.Atoi(qs.Get("num"))
 		if err != nil {
 			return
 		}
+		qs.Set("start", strconv.Itoa(start+offset))
+		qs.Set("num", "5")
+		url.RawQuery = qs.Encode()
+
+		// Get results
+		results := SearchResults{}
+		errJson := botutils.FetchJSON(url.String(), &results)
+		if errJson != nil {
+			fmt.Printf("json error")
+			return
+		}
 		p.lastReqs[m.ChannelID] = url
+
 		if len(results.Items) > 0 {
-			resultsStr := make([]fmt.Stringer, len(results.Items))
-			for i, v := range results.Items {
-				resultsStr[i] = fmt.Stringer(v)
+			_, err := botutils.NewMenu(s, results.Items, "\n", m.ChannelID)
+			if err != nil {
+				fmt.Printf(err.Error())
+				return
 			}
-			botutils.NewMenu(s, resultsStr, "\n", m.ChannelID, func(strer fmt.Stringer) {
-				r := Result{}
-				r = strer.(Result)
-				s.ChannelMessageSend(m.ChannelID, r.Link)
-			})
 		} else {
-			msg := fmt.Sprintf("No result found for %v", strings.Join(cmd.Args, " "))
+			msg := fmt.Sprintf("No more result for %v", strings.Join(cmd.Args, " "))
 			s.ChannelMessageSend(m.ChannelID, msg)
 		}
 	}
