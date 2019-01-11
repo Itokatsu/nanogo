@@ -293,7 +293,7 @@ func (p *youtubePlugin) AddSubscription(sub *Subscription, s *discordgo.Session)
 	}
 }
 
-func (p *youtubePlugin) HandleMsg(cmd *botutils.Cmd, s *discordgo.Session, m *discordgo.MessageCreate) {
+func (p *youtubePlugin) HandleMsg(cmd *botutils.Cmd, s *discordgo.Session) {
 	switch strings.ToLower(cmd.Name) {
 	case "yt", "youtube":
 		if len(cmd.Args) < 1 {
@@ -309,12 +309,12 @@ func (p *youtubePlugin) HandleMsg(cmd *botutils.Cmd, s *discordgo.Session, m *di
 			if err != nil {
 				YTChan, err = p.GetChannelBy("id", cmd.Args[1])
 				if err != nil {
-					s.ChannelMessageSend(m.ChannelID, err.Error())
+					s.ChannelMessageSend(cmd.ChannelID, err.Error())
 					return
 				}
 			}
 
-			notif := m.ChannelID
+			notif := cmd.ChannelID
 			if len(cmd.Args) > 2 {
 				//@TODO handle channel mention
 				notif = cmd.Args[2]
@@ -323,20 +323,20 @@ func (p *youtubePlugin) HandleMsg(cmd *botutils.Cmd, s *discordgo.Session, m *di
 			if sub, ok := p.Subs[YTChan.Id]; ok {
 				for _, id := range sub.NotifChannelIDs {
 					if notif == id {
-						s.ChannelMessageSend(m.ChannelID, "Already subscribed")
+						s.ChannelMessageSend(cmd.ChannelID, "Already subscribed")
 						return
 					}
 				}
 				sub.NotifChannelIDs = append(sub.NotifChannelIDs, notif)
-				s.ChannelMessageSend(m.ChannelID, sub.Channel.Details())
+				s.ChannelMessageSend(cmd.ChannelID, sub.Channel.Details())
 				plugin.Save(p)
 				return
 			}
 			//Build Subscription
 			var sub Subscription
 			sub.Channel = YTChan
-			sub.AddedAt, _ = m.Timestamp.Parse()
-			sub.AddedBy = m.Author
+			sub.AddedAt, _ = cmd.Timestamp.Parse()
+			sub.AddedBy = cmd.Author
 			sub.Filter = off
 			sub.FeedUrl = "https://www.youtube.com/xml/feeds/"
 			sub.FeedUrl += fmt.Sprintf("videos.xml?channel_id=%v", sub.Channel.Id)
@@ -345,11 +345,11 @@ func (p *youtubePlugin) HandleMsg(cmd *botutils.Cmd, s *discordgo.Session, m *di
 
 			err = p.AddSubscription(&sub, s)
 			if err != nil {
-				s.ChannelMessageSend(m.ChannelID, err.Error())
+				s.ChannelMessageSend(cmd.ChannelID, err.Error())
 				return
 			}
 			plugin.Save(p)
-			s.ChannelMessageSend(m.ChannelID, sub.Channel.Details())
+			s.ChannelMessageSend(cmd.ChannelID, sub.Channel.Details())
 
 		case "unsub":
 			if len(cmd.Args) < 2 {
@@ -359,17 +359,16 @@ func (p *youtubePlugin) HandleMsg(cmd *botutils.Cmd, s *discordgo.Session, m *di
 			if len(subs) == 0 {
 				return
 			}
-			perm, _ := s.UserChannelPermissions(m.Author.ID, m.ChannelID)
-			admin := (perm&discordgo.PermissionAdministrator == discordgo.PermissionAdministrator)
-			if m.Author.ID != subs[0].AddedBy.ID && !admin {
-				s.ChannelMessageSend(m.ChannelID, "You cannot do that :nano:")
+
+			if cmd.Author.ID != subs[0].AddedBy.ID && !botutils.AuthorIsAdmin(s, cmd.Message) {
+				s.ChannelMessageSend(cmd.ChannelID, "You cannot do that :nano:")
 				return
 			}
 			p.client.Unsubscribe(subs[0].FeedUrl)
 			delete(p.Subs, subs[0].Channel.Id)
 			plugin.Save(p)
 			msg := fmt.Sprintf("Unsubscribed from %v", subs[0].Channel.Snippet.Title)
-			s.ChannelMessageSend(m.ChannelID, msg)
+			s.ChannelMessageSend(cmd.ChannelID, msg)
 			return
 
 		case "filter":
@@ -400,12 +399,12 @@ func (p *youtubePlugin) HandleMsg(cmd *botutils.Cmd, s *discordgo.Session, m *di
 					subs[0].Filter = off
 				}
 			}
-			s.ChannelMessageSend(m.ChannelID, msg)
+			s.ChannelMessageSend(cmd.ChannelID, msg)
 			plugin.Save(p)
 
 		case "list":
 			if len(p.Subs) < 1 {
-				s.ChannelMessageSend(m.ChannelID, "No subscription found.")
+				s.ChannelMessageSend(cmd.ChannelID, "No subscription found.")
 				return
 			}
 			var subs Subscriptions
@@ -421,7 +420,7 @@ func (p *youtubePlugin) HandleMsg(cmd *botutils.Cmd, s *discordgo.Session, m *di
 					sub.AddedBy.Username, len(sub.NotifChannelIDs))
 			}
 			msg += fmt.Sprintf("\nSubscribed to %d channels.```", len(subs))
-			s.ChannelMessageSend(m.ChannelID, msg)
+			s.ChannelMessageSend(cmd.ChannelID, msg)
 		}
 	}
 }

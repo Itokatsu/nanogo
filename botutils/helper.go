@@ -2,16 +2,17 @@ package botutils
 
 import (
 	"github.com/bwmarrin/discordgo"
-	"unicode/utf8"
 	"strings"
+	"unicode/utf8"
 )
 
-func AuthorIsAdmin(s *discordgo.Session, m *discordgo.MessageCreate) bool {
+func AuthorIsAdmin(s *discordgo.Session, m *discordgo.Message) bool {
 	perm, _ := s.UserChannelPermissions(m.Author.ID, m.ChannelID)
 	return (perm&discordgo.PermissionAdministrator == discordgo.PermissionAdministrator)
 }
 
 var maxRunes = 2000
+
 func Send(s *discordgo.Session, chanID string, msg string) {
 	nRunes := utf8.RuneCountInString(msg)
 	if nRunes < maxRunes {

@@ -90,7 +90,7 @@ type EnemizerOptions struct {
 
 func (s SeedOptions) Field(fieldName string) string {
 	svalues := reflect.ValueOf(s)
-	val := stvalues.FieldByName(fieldName)
+	val := svalues.FieldByName(fieldName)
 	if fieldName == "Shuffle" && val.String() == "" {
 		return "NoShuffle"
 	}
@@ -145,9 +145,10 @@ func (p *alttprPlugin) GetSettingsEmbed() *discordgo.MessageEmbed {
 	return embed.SetDescription(text).MessageEmbed
 }
 
-func (p *alttprPlugin) HandleMsg(cmd *botutils.Cmd, s *discordgo.Session, m *discordgo.MessageCreate) {
+func (p *alttprPlugin) HandleMsg(cmd *botutils.Cmd, s *discordgo.Session) {
 	switch strings.ToLower(cmd.Name) {
 	case "alttp", "lttp", "z":
+		m := cmd.Message
 		generate := false
 		updated := false
 		if len(cmd.Args) < 1 {

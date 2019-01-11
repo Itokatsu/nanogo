@@ -65,7 +65,7 @@ func (p *googlePlugin) buildRequestURL(query string) url.URL {
 	return reqUrl
 }
 
-func (p *googlePlugin) HandleMsg(cmd *botutils.Cmd, s *discordgo.Session, m *discordgo.MessageCreate) {
+func (p *googlePlugin) HandleMsg(cmd *botutils.Cmd, s *discordgo.Session) {
 	switch strings.ToLower(cmd.Name) {
 	case "g":
 		if len(cmd.Args) == 0 {
@@ -80,12 +80,12 @@ func (p *googlePlugin) HandleMsg(cmd *botutils.Cmd, s *discordgo.Session, m *dis
 		}
 
 		if len(result.Items) == 1 {
-			s.ChannelMessageSend(m.ChannelID, result.Items[0].Link)
+			s.ChannelMessageSend(cmd.ChannelID, result.Items[0].Link)
 			return
 		}
 		if len(result.Items) < 1 {
 			msg := fmt.Sprintf("No result found for %v", strings.Join(cmd.Args, " "))
-			s.ChannelMessageSend(m.ChannelID, msg)
+			s.ChannelMessageSend(cmd.ChannelID, msg)
 			return
 		}
 
@@ -93,9 +93,9 @@ func (p *googlePlugin) HandleMsg(cmd *botutils.Cmd, s *discordgo.Session, m *dis
 		for _, r := range result.Items {
 			strgers = append(strgers, r)
 		}
-		botutils.NewMenu(s, strgers, "\n", m.ChannelID, func(stger fmt.Stringer) {
+		botutils.NewMenu(s, strgers, "\n", cmd.ChannelID, func(stger fmt.Stringer) {
 			res := stger.(Result)
-			s.ChannelMessageSend(m.ChannelID, res.Link)
+			s.ChannelMessageSend(cmd.ChannelID, res.Link)
 		})
 
 	}

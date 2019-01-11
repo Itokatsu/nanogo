@@ -96,7 +96,7 @@ func (p *wolframPlugin) buildRequestURL(query string) *url.URL {
 	return reqUrl
 }
 
-func (p *wolframPlugin) HandleMsg(cmd *botutils.Cmd, s *discordgo.Session, m *discordgo.MessageCreate) {
+func (p *wolframPlugin) HandleMsg(cmd *botutils.Cmd, s *discordgo.Session) {
 	switch strings.ToLower(cmd.Name) {
 	case "wa":
 		if len(cmd.Args) == 0 {
@@ -112,9 +112,9 @@ func (p *wolframPlugin) HandleMsg(cmd *botutils.Cmd, s *discordgo.Session, m *di
 		}
 		results := resp.Res.Pods
 		if len(results) == 1 {
-			results[0].Display(s, m.ChannelID)
+			results[0].Display(s, cmd.ChannelID)
 		} else {
-			c, err := botutils.NewMenu(s, results, " | ", m.ChannelID)
+			c, err := botutils.NewMenu(s, results, " | ", cmd.ChannelID)
 			if err != nil {
 				return
 			}
@@ -122,7 +122,7 @@ func (p *wolframPlugin) HandleMsg(cmd *botutils.Cmd, s *discordgo.Session, m *di
 			go func() {
 				for resp := range c {
 					pod := resp.(Pod)
-					pod.Display(s, m.ChannelID)
+					pod.Display(s, cmd.ChannelID)
 				}
 			}()
 		}
@@ -148,13 +148,14 @@ func (p *wolframPlugin) HandleMsg(cmd *botutils.Cmd, s *discordgo.Session, m *di
 		}
 		if result.Numpods < 1 {
 			c := botutils.Cmd{
-				Name: "wa",
-				Args: cmd.Args,
+				Message: cmd.Message,
+				Name:    "wa",
+				Args:    cmd.Args,
 			}
-			p.HandleMsg(&c, s, m)
+			p.HandleMsg(&c, s)
 			return
 		}
-		result.Pods[0].Display(s, m.ChannelID)
+		result.Pods[0].Display(s, cmd.ChannelID)
 	}
 }
 

@@ -14,7 +14,7 @@ import (
 )
 
 type Plugin interface {
-	HandleMsg(cmd *botutils.Cmd, s *discordgo.Session, m *discordgo.MessageCreate)
+	HandleMsg(cmd *botutils.Cmd, s *discordgo.Session)
 	Help() string
 	Name() string
 	HasData() bool

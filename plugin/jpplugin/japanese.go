@@ -60,7 +60,7 @@ func (p *jpPlugin) HasData() bool {
 // Hiragana : U+3040 ~ U+309F
 // Katakana : U+30A0 ~ U+30FF
 
-func (p *jpPlugin) HandleMsg(cmd *botutils.Cmd, s *discordgo.Session, m *discordgo.MessageCreate) {
+func (p *jpPlugin) HandleMsg(cmd *botutils.Cmd, s *discordgo.Session) {
 	//now := time.Now()
 	if len(cmd.Args) < 1 {
 		return
@@ -86,7 +86,7 @@ func (p *jpPlugin) HandleMsg(cmd *botutils.Cmd, s *discordgo.Session, m *discord
 			msg += "\n+ " + e.Print()
 		}
 		msg += "```"
-		s.ChannelMessageSend(m.ChannelID, msg)
+		s.ChannelMessageSend(cmd.ChannelID, msg)
 
 	case "dj":
 		var msg string
@@ -106,7 +106,7 @@ func (p *jpPlugin) HandleMsg(cmd *botutils.Cmd, s *discordgo.Session, m *discord
 			msg += "\n+ " + e.Print()
 		}
 		msg += "```"
-		s.ChannelMessageSend(m.ChannelID, msg)
+		s.ChannelMessageSend(cmd.ChannelID, msg)
 	}
 
 	/*
@@ -130,9 +130,9 @@ func (p *jpPlugin) HandleMsg(cmd *botutils.Cmd, s *discordgo.Session, m *discord
 					if gaiji != "" {
 						gaiji = "```" + gaiji + "```"
 					}
-					s.ChannelMessageSend(m.ChannelID, gaiji)
+					s.ChannelMessageSend(cmd.ChannelID, gaiji)
 				} else {
-					s.ChannelMessageSend(m.ChannelID,
+					s.ChannelMessageSend(cmd.ChannelID,
 						fmt.Sprintf("isn't an EPWING dictionary is %T", dict))
 				}
 				break
@@ -144,24 +144,24 @@ func (p *jpPlugin) HandleMsg(cmd *botutils.Cmd, s *discordgo.Session, m *discord
 			return
 		}
 		if n == 1 {
-			botutils.Send(s, m.ChannelID, results[0].Details())
+			botutils.Send(s, cmd.ChannelID, results[0].Details())
 			return
 		}
 		if n > 25 {
 			results = results[:25]
 		}
 
-		s.ChannelMessageSend(m.ChannelID,
+		s.ChannelMessageSend(cmd.ChannelID,
 			fmt.Sprintf("%d Results (in %v) : ", n, time.Since(now)))
 
-		c, err := botutils.NewMenu(s, results, " | ", m.ChannelID)
+		c, err := botutils.NewMenu(s, results, " | ", cmd.ChannelID)
 		if err != nil {
 			fmt.Printf(err.Error())
 		}
 		go func() {
 			for e := range c {
 				entry := e.(jp.DictEntry)
-				botutils.Send(s, m.ChannelID, entry.Details())
+				botutils.Send(s, cmd.ChannelID, entry.Details())
 			}
 		}()*/
 }

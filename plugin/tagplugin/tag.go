@@ -40,17 +40,20 @@ func (p *tagPlugin) HasData() bool {
 	return true
 }
 
-func (p *tagPlugin) HandleMsg(cmd *botutils.Cmd, s *discordgo.Session, m *discordgo.MessageCreate) {
+const shortcut = "!"
+
+func (p *tagPlugin) HandleMsg(cmd *botutils.Cmd, s *discordgo.Session) {
 
 	// shortcut with prefix
-	if key := botutils.ParseCmd(cmd.Name, "!"); key.Name != "" {
-		channel, err := s.State.Channel(m.ChannelID)
+	if strings.HasPrefix(cmd.Name, shortcut) {
+		key := cmd.Name[len(shortcut):]
+		channel, err := s.State.Channel(cmd.ChannelID)
 		if err != nil {
 			return
 		}
 		guildID := channel.GuildID
-		if tag, exist := p.Tags[guildID][key.Name]; exist {
-			s.ChannelMessageSend(m.ChannelID, tag.Message)
+		if tag, exist := p.Tags[guildID][key]; exist {
+			s.ChannelMessageSend(cmd.ChannelID, tag.Message)
 		}
 		return
 	}
@@ -60,7 +63,7 @@ func (p *tagPlugin) HandleMsg(cmd *botutils.Cmd, s *discordgo.Session, m *discor
 		if len(cmd.Args) < 1 {
 			return
 		}
-		channel, err := s.State.Channel(m.ChannelID)
+		channel, err := s.State.Channel(cmd.ChannelID)
 		if err != nil {
 			return
 		}
@@ -79,23 +82,23 @@ func (p *tagPlugin) HandleMsg(cmd *botutils.Cmd, s *discordgo.Session, m *discor
 			// Illegal keywords
 			case "add", "del", "list":
 				msg := fmt.Sprintf("Error : %v is a reserved keyword for the Tag plugin.", key)
-				s.ChannelMessageSend(m.ChannelID, msg)
+				s.ChannelMessageSend(cmd.ChannelID, msg)
 				return
 			}
 			// Tag already exist, only admins or author can modify it
 			if tag, exist := p.Tags[guildID][key]; exist {
-				if m.Author.ID != tag.AuthorID && !botutils.AuthorIsAdmin(s, m) {
-					msg := fmt.Sprintf("The tag `%s` belongs to %s.", key, m.Author.Username)
-					s.ChannelMessageSend(m.ChannelID, msg)
+				if cmd.Author.ID != tag.AuthorID && !botutils.AuthorIsAdmin(s, cmd.Message) {
+					msg := fmt.Sprintf("The tag `%s` belongs to %s.", key, cmd.Author.Username)
+					s.ChannelMessageSend(cmd.ChannelID, msg)
 					return
 				}
 			}
 			// Create Tag
 			p.Tags[guildID][key] = Tag{
-				AuthorID: m.Author.ID,
+				AuthorID: cmd.Author.ID,
 				Message:  strings.Join(cmd.Args[2:], " "),
 				LastEdit: time.Now()}
-			s.ChannelMessageSend(m.ChannelID, p.Tags[guildID][key].Message)
+			s.ChannelMessageSend(cmd.ChannelID, p.Tags[guildID][key].Message)
 			plugin.Save(p)
 			return
 
@@ -106,16 +109,16 @@ func (p *tagPlugin) HandleMsg(cmd *botutils.Cmd, s *discordgo.Session, m *discor
 			key := strings.ToLower(cmd.Args[1])
 			tag, exist := p.Tags[guildID][key]
 			if !exist {
-				s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("Tag `%v` not found", key))
+				s.ChannelMessageSend(cmd.ChannelID, fmt.Sprintf("Tag `%v` not found", key))
 				return
 			}
-			if m.Author.ID != tag.AuthorID && !botutils.AuthorIsAdmin(s, m) {
-				msg := fmt.Sprintf("Tag `%s` belongs to %s.", key, m.Author.Username)
-				s.ChannelMessageSend(m.ChannelID, msg)
+			if cmd.Author.ID != tag.AuthorID && !botutils.AuthorIsAdmin(s, cmd.Message) {
+				msg := fmt.Sprintf("Tag `%s` belongs to %s.", key, cmd.Author.Username)
+				s.ChannelMessageSend(cmd.ChannelID, msg)
 				return
 			}
 			delete(p.Tags[guildID], key)
-			s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("Command `%v` deleted", key))
+			s.ChannelMessageSend(cmd.ChannelID, fmt.Sprintf("Command `%v` deleted", key))
 			plugin.Save(p)
 			return
 
@@ -128,10 +131,10 @@ func (p *tagPlugin) HandleMsg(cmd *botutils.Cmd, s *discordgo.Session, m *discor
 			key := strings.ToLower(cmd.Args[0])
 			tag, exist := p.Tags[guildID][key]
 			if !exist {
-				s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("Tag `%v` not found", key))
+				s.ChannelMessageSend(cmd.ChannelID, fmt.Sprintf("Tag `%v` not found", key))
 				return
 			}
-			s.ChannelMessageSend(m.ChannelID, tag.Message)
+			s.ChannelMessageSend(cmd.ChannelID, tag.Message)
 			return
 		}
 	}

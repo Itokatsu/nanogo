@@ -88,7 +88,7 @@ func (p *googlePlugin) buildRequestURL(query string, n int) url.URL {
 	return reqUrl
 }
 
-func (p *googlePlugin) HandleMsg(cmd *botutils.Cmd, s *discordgo.Session, m *discordgo.MessageCreate) {
+func (p *googlePlugin) HandleMsg(cmd *botutils.Cmd, s *discordgo.Session) {
 	switch strings.ToLower(cmd.Name) {
 
 	//first google result
@@ -99,7 +99,7 @@ func (p *googlePlugin) HandleMsg(cmd *botutils.Cmd, s *discordgo.Session, m *dis
 		query := strings.Join(cmd.Args, " ")
 		url := p.buildRequestURL(query, 1)
 
-		p.lastReqs[m.ChannelID] = &url
+		p.lastReqs[cmd.ChannelID] = &url
 		result := SearchResults{}
 		err := botutils.FetchJSON(url.String(), &result)
 		if err != nil {
@@ -107,10 +107,10 @@ func (p *googlePlugin) HandleMsg(cmd *botutils.Cmd, s *discordgo.Session, m *dis
 		}
 
 		if len(result.Items) > 0 {
-			s.ChannelMessageSend(m.ChannelID, result.Items[0].Link)
+			s.ChannelMessageSend(cmd.ChannelID, result.Items[0].Link)
 		} else {
 			msg := fmt.Sprintf("No result found for %v", strings.Join(cmd.Args, " "))
-			s.ChannelMessageSend(m.ChannelID, msg)
+			s.ChannelMessageSend(cmd.ChannelID, msg)
 		}
 
 	//google img
@@ -128,11 +128,11 @@ func (p *googlePlugin) HandleMsg(cmd *botutils.Cmd, s *discordgo.Session, m *dis
 			Path:     "search",
 			RawQuery: qs.Encode(),
 		}
-		s.ChannelMessageSend(m.ChannelID, reqUrl.String())
+		s.ChannelMessageSend(cmd.ChannelID, reqUrl.String())
 		/*		url := p.buildRequestURL(query, 1)
 				url.Query().Set("searchType", "image")
 
-				p.lastReqs[m.ChannelID] = &url
+				p.lastReqs[cmd.ChannelID] = &url
 				results := []SearchResults{}
 				err := botutils.FetchJSON(url.String(), &results)
 				if err != nil {
@@ -142,7 +142,7 @@ func (p *googlePlugin) HandleMsg(cmd *botutils.Cmd, s *discordgo.Session, m *dis
 	//more results
 	case "gm":
 		// get last request
-		url, ok := p.lastReqs[m.ChannelID]
+		url, ok := p.lastReqs[cmd.ChannelID]
 		if !ok {
 			return
 		}
@@ -168,17 +168,17 @@ func (p *googlePlugin) HandleMsg(cmd *botutils.Cmd, s *discordgo.Session, m *dis
 			fmt.Printf("json error")
 			return
 		}
-		p.lastReqs[m.ChannelID] = url
+		p.lastReqs[cmd.ChannelID] = url
 
 		if len(results.Items) > 0 {
-			_, err := botutils.NewMenu(s, results.Items, "\n", m.ChannelID)
+			_, err := botutils.NewMenu(s, results.Items, "\n", cmd.ChannelID)
 			if err != nil {
 				fmt.Printf(err.Error())
 				return
 			}
 		} else {
 			msg := fmt.Sprintf("No more result for %v", strings.Join(cmd.Args, " "))
-			s.ChannelMessageSend(m.ChannelID, msg)
+			s.ChannelMessageSend(cmd.ChannelID, msg)
 		}
 	}
 }

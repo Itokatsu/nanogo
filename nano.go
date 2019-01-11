@@ -53,7 +53,6 @@ type PluginsConfig struct {
 
 // Global variables
 var DefaultConfig = BotConfig{
-	// No bot token => useless
 	Prefixes:    []string{"!"},
 	SaveFolder:  ".saves",
 	TestingOnly: false,
@@ -81,10 +80,10 @@ func loadConfig() {
 func init() {
 	// Load config file
 	loadConfig()
+	botutils.Init()
 	// Create plugin savestates folder
 	Cfg.Bot.SaveFolder = path.Join(".", Cfg.Bot.SaveFolder)
 	plugin.CreateSaveDir(Cfg.Bot.SaveFolder)
-	// Generate pseudo random seed
 	StartTime = time.Now()
 }
 
@@ -111,8 +110,8 @@ func main() {
 	defer ph.SaveAll()
 	defer ph.CleanupAll()
 
-	// Register the messageCreate func as a callback for MessageCreate events.
-	dg.AddHandler(messageCreate)
+	dg.AddHandler(messageCreate) // Listen to new messages
+	dg.AddHandler(messageEdit)   // Listen to message edits
 
 	// Open a websocket connection to Discord and begin listening.
 	err = dg.Open()
@@ -129,9 +128,8 @@ func main() {
 	<-sc
 }
 
-// This function will be called (due to AddHandler above) every time a new
-// message is created on any channel that the autenticated bot has access to.
-func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
+// Handling messages
+func handle(s *discordgo.Session, m *discordgo.Message) {
 	// Ignore messages from bots (and self)
 	if m.Author.ID == s.State.User.ID || m.Author.Bot {
 		return
@@ -140,10 +138,10 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 	if Cfg.Bot.TestingOnly && m.ChannelID != Cfg.Bot.TestChannel {
 		return
 	}
-	cmd := botutils.ParseCmd(m.Content, Cfg.Bot.Prefixes...)
+	cmd := botutils.ParseCmd(m, Cfg.Bot.Prefixes...)
 	if cmd.Name != "" {
 		for _, p := range ph.GetPlugins() {
-			go p.HandleMsg(&cmd, s, m)
+			go p.HandleMsg(&cmd, s)
 		}
 	}
 	if cmd.Name == "emo" {
@@ -154,20 +152,10 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 	}
 }
 
-/*
+func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
+	handle(s, m.Message)
+}
+
 func messageEdit(s *discordgo.Session, m *discordgo.MessageUpdate) {
-	// Ignore messages from bots (and self)
-	if m.Author.ID == s.State.User.ID || m.Author.Bot {
-		return
-	}
-	// Test channel only
-	if Cfg.Bot.TestingOnly && m.ChannelID != Cfg.Bot.TestChannel {
-		return
-	}
-	cmd := botutils.ParseCmd(m.Content, Cfg.Bot.Prefixes...)
-	if cmd.Name != "" {
-		for _, p := range ph.GetPlugins() {
-			go p.HandleMsg(&cmd, s, m)
-		}
-	}
-}*/
+	handle(s, m.Message)
+}

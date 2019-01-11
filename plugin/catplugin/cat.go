@@ -37,7 +37,7 @@ type CatImg struct {
 	Source_url string `xml:"source_url"`
 }
 
-func (p *catPlugin) HandleMsg(cmd *botutils.Cmd, s *discordgo.Session, m *discordgo.MessageCreate) {
+func (p *catPlugin) HandleMsg(cmd *botutils.Cmd, s *discordgo.Session) {
 	switch strings.ToLower(cmd.Name) {
 	case "cat":
 		reqUrl := fmt.Sprintf("%s&results_per_page=5", baseUrl)
@@ -48,7 +48,7 @@ func (p *catPlugin) HandleMsg(cmd *botutils.Cmd, s *discordgo.Session, m *discor
 			if err != nil {
 				continue
 			}
-			s.ChannelMessageSend(m.ChannelID, img.Url)
+			s.ChannelMessageSend(cmd.ChannelID, img.Url)
 			return
 		}
 	}

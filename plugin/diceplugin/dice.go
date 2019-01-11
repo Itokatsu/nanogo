@@ -33,7 +33,7 @@ func (p *dicePlugin) HasData() bool {
 var validArg = `^(\d*?)d?(\d+)$`
 var re = regexp.MustCompile(validArg)
 
-func (p *dicePlugin) HandleMsg(cmd *botutils.Cmd, s *discordgo.Session, m *discordgo.MessageCreate) {
+func (p *dicePlugin) HandleMsg(cmd *botutils.Cmd, s *discordgo.Session) {
 	switch strings.ToLower(cmd.Name) {
 	case "roll":
 		var nRolls, dieSize int
@@ -55,7 +55,8 @@ func (p *dicePlugin) HandleMsg(cmd *botutils.Cmd, s *discordgo.Session, m *disco
 			dieSize = 20
 		}
 		if nRolls == 1 {
-			s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("%d (max : %d)", botutils.RandInt(dieSize)+1, dieSize))
+			s.ChannelMessageSend(cmd.ChannelID,
+				fmt.Sprintf("%d (max : %d)", botutils.RandInt(dieSize)+1, dieSize))
 			return
 		}
 
@@ -68,7 +69,7 @@ func (p *dicePlugin) HandleMsg(cmd *botutils.Cmd, s *discordgo.Session, m *disco
 		}
 		msg := fmt.Sprintf("%v ➜ %v (avg : %.2f ; max : %v)",
 			strings.Join(results, " | "), sum, float64(sum)/float64(nRolls), dieSize)
-		s.ChannelMessageSend(m.ChannelID, msg)
+		s.ChannelMessageSend(cmd.ChannelID, msg)
 		return
 	}
 }
