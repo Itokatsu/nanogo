@@ -82,19 +82,17 @@ func (pod Pod) Display(s *discordgo.Session, channelID string) {
 	s.ChannelFileSend(channelID, "wolfram.gif", resp.Body)
 }
 
-func (p *wolframPlugin) buildRequestURL(query string) url.URL {
+var WolframEndpoint = "https://api.wolframalpha.com/v2/query"
+
+func (p *wolframPlugin) buildRequestURL(query string) *url.URL {
 	qs := url.Values{}
 	qs.Set("input", query)
 	qs.Set("appid", p.apiKey)
 	qs.Set("location", "Paris")
 	qs.Set("output", "json")
 	//qs.Set("format", "image,plaintext")
-	var reqUrl = url.URL{
-		Scheme:   "https",
-		Host:     "api.wolframalpha.com",
-		Path:     "v2/query",
-		RawQuery: qs.Encode(),
-	}
+	reqUrl, _ := url.Parse(WolframEndpoint)
+	reqUrl.RawQuery = qs.Encode()
 	return reqUrl
 }
 
@@ -113,17 +111,21 @@ func (p *wolframPlugin) HandleMsg(cmd *botutils.Cmd, s *discordgo.Session, m *di
 			return
 		}
 		results := resp.Res.Pods
-		c, err := botutils.NewMenu(s, results, " | ", m.ChannelID)
-		if err != nil {
-			return
-		}
-
-		go func() {
-			for resp := range c {
-				pod := resp.(Pod)
-				pod.Display(s, m.ChannelID)
+		if len(results) == 1 {
+			results[0].Display(s, m.ChannelID)
+		} else {
+			c, err := botutils.NewMenu(s, results, " | ", m.ChannelID)
+			if err != nil {
+				return
 			}
-		}()
+
+			go func() {
+				for resp := range c {
+					pod := resp.(Pod)
+					pod.Display(s, m.ChannelID)
+				}
+			}()
+		}
 
 	//result pod only
 	case "war":

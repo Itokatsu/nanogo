@@ -7,4 +7,6 @@ media/
 *.json
 *.filter
 *.md
+*.sublime-project
+*.sublime-workspace
 .saves

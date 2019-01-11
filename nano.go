@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"math/rand"
+	//"math/rand"
 	"os"
 	"os/signal"
 	"path"
@@ -20,6 +20,7 @@ import (
 	"github.com/itokatsu/nanogo/plugin"
 
 	//	"github.com/itokatsu/nanogo/testplugin"
+	"github.com/itokatsu/nanogo/plugin/alttprplugin"
 	"github.com/itokatsu/nanogo/plugin/catplugin"
 	"github.com/itokatsu/nanogo/plugin/diceplugin"
 	"github.com/itokatsu/nanogo/plugin/googleplugin"
@@ -47,6 +48,7 @@ type PluginsConfig struct {
 	Youtube youtubeplugin.Config `json:"youtube,omitempty"`
 	Wolfram wolframplugin.Config `json:"wolfram,omitempty"`
 	Jp      jpplugin.Config      `json:"japanese,omitempty"`
+	Alttpr  alttprplugin.Config  `json:"alttpr,omitempty"`
 }
 
 // Global variables
@@ -61,7 +63,6 @@ var (
 	ph        *plugin.PluginHandler
 	Cfg       ConfigKeys
 	StartTime time.Time
-	CmdPrefix string
 )
 
 func loadConfig() {
@@ -85,7 +86,6 @@ func init() {
 	plugin.CreateSaveDir(Cfg.Bot.SaveFolder)
 	// Generate pseudo random seed
 	StartTime = time.Now()
-	rand.Seed(time.Now().UnixNano())
 }
 
 func main() {
@@ -103,6 +103,7 @@ func main() {
 	go ph.Start(tagplugin.New())
 	go ph.Start(catplugin.New())
 
+	go ph.Start(alttprplugin.New(Cfg.Plugins.Alttpr))
 	go ph.Start(wolframplugin.New(Cfg.Plugins.Wolfram))
 	go ph.Start(googleplugin.New(Cfg.Plugins.Google))
 	go ph.Start(youtubeplugin.New(Cfg.Plugins.Youtube))
@@ -131,12 +132,12 @@ func main() {
 // This function will be called (due to AddHandler above) every time a new
 // message is created on any channel that the autenticated bot has access to.
 func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
-	// Test channel only
-	if Cfg.Bot.TestingOnly && m.ChannelID != Cfg.Bot.TestChannel {
-		return
-	}
 	// Ignore messages from bots (and self)
 	if m.Author.ID == s.State.User.ID || m.Author.Bot {
+		return
+	}
+	// Test channel only
+	if Cfg.Bot.TestingOnly && m.ChannelID != Cfg.Bot.TestChannel {
 		return
 	}
 	cmd := botutils.ParseCmd(m.Content, Cfg.Bot.Prefixes...)
@@ -145,4 +146,28 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 			go p.HandleMsg(&cmd, s, m)
 		}
 	}
+	if cmd.Name == "emo" {
+		sentMsg, _ := s.ChannelMessageSend(m.ChannelID, "reactions")
+		for i := 0; i <= 10; i++ {
+			s.MessageReactionAdd(m.ChannelID, sentMsg.ID, fmt.Sprintf("%d\u20E3", i))
+		}
+	}
 }
+
+/*
+func messageEdit(s *discordgo.Session, m *discordgo.MessageUpdate) {
+	// Ignore messages from bots (and self)
+	if m.Author.ID == s.State.User.ID || m.Author.Bot {
+		return
+	}
+	// Test channel only
+	if Cfg.Bot.TestingOnly && m.ChannelID != Cfg.Bot.TestChannel {
+		return
+	}
+	cmd := botutils.ParseCmd(m.Content, Cfg.Bot.Prefixes...)
+	if cmd.Name != "" {
+		for _, p := range ph.GetPlugins() {
+			go p.HandleMsg(&cmd, s, m)
+		}
+	}
+}*/

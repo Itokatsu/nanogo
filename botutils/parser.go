@@ -27,5 +27,5 @@ func ParseCmd(msg string, prefixes ...string) (c Cmd) {
 			return c
 		}
 	}
-	return 
+	return
 }

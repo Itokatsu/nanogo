@@ -2,11 +2,9 @@ package diceplugin
 
 import (
 	"fmt"
-	"math/rand"
 	"regexp"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/itokatsu/nanogo/botutils"
@@ -38,7 +36,6 @@ var re = regexp.MustCompile(validArg)
 func (p *dicePlugin) HandleMsg(cmd *botutils.Cmd, s *discordgo.Session, m *discordgo.MessageCreate) {
 	switch strings.ToLower(cmd.Name) {
 	case "roll":
-		r := rand.New(rand.NewSource(time.Now().UnixNano()))
 		var nRolls, dieSize int
 		if len(cmd.Args) > 0 && re.MatchString(cmd.Args[0]) {
 			subm := re.FindStringSubmatch(cmd.Args[0])
@@ -58,14 +55,14 @@ func (p *dicePlugin) HandleMsg(cmd *botutils.Cmd, s *discordgo.Session, m *disco
 			dieSize = 20
 		}
 		if nRolls == 1 {
-			s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("%d (max : %d)", r.Intn(dieSize)+1, dieSize))
+			s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("%d (max : %d)", botutils.RandInt(dieSize)+1, dieSize))
 			return
 		}
 
 		var results []string
 		sum := 0
 		for i := nRolls; i > 0; i-- {
-			v := r.Intn(dieSize) + 1
+			v := botutils.RandInt(dieSize) + 1
 			results = append(results, strconv.Itoa(v))
 			sum += v
 		}
