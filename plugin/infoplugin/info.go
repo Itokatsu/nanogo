@@ -50,6 +50,10 @@ func (p *infoPlugin) HandleMsg(cmd *botutils.Cmd, s *discordgo.Session) {
 	case "tenhou":
 		s.ChannelMessageSend(cmd.ChannelID, "http://tenhou.net/0/?L7133")
 		return
+
+	case "chapu":
+		s.ChannelMessageSend(cmd.ChannelID, "https://www.youtube.com/watch?v=FTfBe9NPzyU")
+		return
 	}
 }
 

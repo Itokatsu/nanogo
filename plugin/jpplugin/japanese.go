@@ -2,6 +2,7 @@ package jpplugin
 
 import (
 	"errors"
+	"fmt"
 	"strings"
 	//"time"
 
@@ -68,25 +69,32 @@ func (p *jpPlugin) HandleMsg(cmd *botutils.Cmd, s *discordgo.Session) {
 
 	switch strings.ToLower(cmd.Name) {
 	case "j":
-
-		var msg string
-		var display int
-		j, _ := web.JishoAPI(cmd.Args[0])
-		if len(j) == 0 {
+		j, err := web.JishoAPI(cmd.Args[0])
+		// Request error ?
+		if err != nil {
+			botutils.SendErrorMsg(cmd, s, err)
+		}
+		// No results
+		if len(j) < 1 {
+			fmt.Println("no results")
 			return
 		}
-		if len(j) > 3 {
-			display = 3
-		} else {
-			display = len(j)
+
+		title := fmt.Sprintf("Got %d results from Jisho API", len(j))
+		pager := web.NewResultPager(j)
+		embed := pager.PopulateEmbed(botutils.NewEmbed())
+		embed.SetTitle(title)
+		msg, _ := s.ChannelMessageSendEmbed(cmd.ChannelID, embed.MessageEmbed)
+		web.PagerH.Add(s, msg, pager)
+
+	case "jtag":
+		if len(cmd.Args) < 1 {
+			return
 		}
-		msg += "```diff"
-		// first three results
-		for _, e := range j[:display] {
-			msg += "\n+ " + e.Print()
+		desc, ok := web.JishoTags[cmd.Args[0]]
+		if ok {
+			s.ChannelMessageSend(cmd.ChannelID, desc)
 		}
-		msg += "```"
-		s.ChannelMessageSend(cmd.ChannelID, msg)
 
 	case "dj":
 		var msg string

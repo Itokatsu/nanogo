@@ -13,6 +13,11 @@ import (
 	"github.com/itokatsu/nanogo/botutils"
 )
 
+const ItemURL = "https://alttpr.com/seed"
+const EntranceURL = "https://alttpr.com/entrance/seed"
+const SeedDownloadURL = "https://alttpr.com/en/h/"
+const ManualGenerationURL = "https://alttpr.com/en/randomizer"
+
 type alttprPlugin struct {
 	Settings SeedOptions
 	Cookie   string
@@ -35,10 +40,6 @@ var Emotes = []string{
 	"<:ganon:290792210692046848>",
 	"<:ded:290790229454094337>",
 }
-
-const ItemURL = "https://alttpr.com/seed"
-const EntranceURL = "https://alttpr.com/entrance/seed"
-const SeedDownloadURL = "https://alttpr.com/en/h/"
 
 var DefaultSettingsJSON = []byte(`{
 	"logic":"NoGlitches",
@@ -147,15 +148,15 @@ func (p *alttprPlugin) GetSettingsEmbed() *discordgo.MessageEmbed {
 
 func (p *alttprPlugin) HandleMsg(cmd *botutils.Cmd, s *discordgo.Session) {
 	switch strings.ToLower(cmd.Name) {
-	case "alttp", "lttp", "z":
-		m := cmd.Message
+	case "alttp", "lttp", "zeldo", "z":
 		generate := false
 		updated := false
+		// Parse command arguments
 		if len(cmd.Args) < 1 {
 			generate = true
 		} else {
 			if strings.HasPrefix(strings.ToLower(cmd.Args[0]), "set") {
-				s.ChannelMessageSendEmbed(m.ChannelID, p.GetSettingsEmbed())
+				s.ChannelMessageSendEmbed(cmd.ChannelID, p.GetSettingsEmbed())
 				return
 			}
 			// search for arguments in possible fields
@@ -172,36 +173,42 @@ func (p *alttprPlugin) HandleMsg(cmd *botutils.Cmd, s *discordgo.Session) {
 				}
 			}
 		}
+
 		if generate {
 			msgComplex := &discordgo.MessageSend{
 				Content: "Generating seed…",
 				Embed:   p.GetSettingsEmbed(),
 			}
-			msg, err := s.ChannelMessageSendComplex(m.ChannelID, msgComplex)
-			if err != nil {
-				fmt.Println(err)
-			}
+			msg, _ := s.ChannelMessageSendComplex(cmd.ChannelID, msgComplex)
 
 			go func(msg *discordgo.Message) {
+				edit := discordgo.NewMessageEdit(msg.ChannelID, msg.ID)
 				resp, err := p.GenerateSeed()
 				if err != nil {
-					fmt.Println(err)
+					s.MessageReactionAdd(msg.ChannelID, msg.ID, botutils.ErrorEmote)
+					edit.SetContent("Something went terribly wrong…").
+						SetEmbed(
+							botutils.NewEmbed().
+								SetDescription(err.Error()).
+								SetColor(0xFF0000).
+								SetURL(ManualGenerationURL).
+								SetFooter("Click the URL and try to generate it yourself").
+								MessageEmbed)
 					return
 				}
 
-				edit := discordgo.NewMessageEdit(msg.ChannelID, msg.ID).
-					SetContent(resp).
+				edit.SetContent(resp).
 					SetEmbed(
 						botutils.GetEmbed(msg).
 							SetTitle("Your seed is ready !").
 							SetColor(0x99FF99).
 							SetURL(resp).MessageEmbed)
 				s.ChannelMessageEditComplex(edit)
-			}(msg)
+			}(msg) //end of goroutine
 			return
 		}
 		if updated {
-			s.ChannelMessageSendEmbed(m.ChannelID, p.GetSettingsEmbed())
+			s.ChannelMessageSendEmbed(cmd.ChannelID, p.GetSettingsEmbed())
 		}
 	}
 }

@@ -5,6 +5,8 @@ package botutils
 
 import (
 	"github.com/bwmarrin/discordgo"
+
+	"fmt"
 )
 
 //Embed ...
@@ -241,6 +243,10 @@ func (e *Embed) TruncateFooter() *Embed {
 }
 
 func GetEmbed(msg *discordgo.Message) *Embed {
+	if len(msg.Embeds) == 0 {
+		fmt.Println("no embed")
+		return nil
+	}
 	// Might have to change this
 	return &Embed{msg.Embeds[0]}
 }

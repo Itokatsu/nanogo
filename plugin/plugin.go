@@ -90,11 +90,13 @@ Plugin Handler
 */
 type PluginHandler struct {
 	plugins map[string]Plugin
+	running map[string]bool
 }
 
 func CreateHandler() *PluginHandler {
 	var handler PluginHandler
 	handler.plugins = make(map[string]Plugin)
+	handler.running = make(map[string]bool)
 	return &handler
 }
 
@@ -102,18 +104,25 @@ func CreateHandler() *PluginHandler {
 func (ph *PluginHandler) Start(p Plugin, err error) {
 	// Handle plugins that failed to initialize
 	if err != nil {
-		fmt.Printf("! Plugin '%v' failed\n", p.Name())
+		fmt.Printf("! Plugin '%v' failed to start\n", p.Name())
 		return
 	}
 
-	Load(p)
+	Load(p) // Try to load from a saved state
 	ph.plugins[p.Name()] = p
+	ph.running[p.Name()] = true
 	fmt.Printf("+ Plugin '%v' started \n", p.Name())
 }
 
-// Get Plugins
-func (ph *PluginHandler) GetPlugins() map[string]Plugin {
-	return ph.plugins
+func (ph *PluginHandler) Stop(p Plugin) {
+	Save(p)
+	ph.running[p.Name()] = false
+	fmt.Printf("- Plugin '%v' stopped \n", p.Name())
+	// test if plugin implements HasCleanup interface
+	pclnup, ok := p.(HasCleanup)
+	if ok {
+		pclnup.Cleanup()
+	}
 }
 
 // Save all plugins
@@ -132,5 +141,27 @@ func (ph *PluginHandler) CleanupAll() {
 			continue
 		}
 		pclnup.Cleanup()
+	}
+}
+
+// PluginHandler Plugin
+func (ph *PluginHandler) Name() string {
+	return "Plugin Handler"
+}
+
+func (ph *PluginHandler) HasData() bool {
+	return false
+}
+
+func (ph *PluginHandler) Help() string {
+	return ``
+}
+
+func (ph *PluginHandler) HandleMsg(cmd *botutils.Cmd, s *discordgo.Session) {
+	// plugins
+	for name, ok := range ph.running {
+		if ok {
+			go ph.plugins[name].HandleMsg(cmd, s)
+		}
 	}
 }

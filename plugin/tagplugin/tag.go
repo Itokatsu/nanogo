@@ -87,7 +87,7 @@ func (p *tagPlugin) HandleMsg(cmd *botutils.Cmd, s *discordgo.Session) {
 			}
 			// Tag already exist, only admins or author can modify it
 			if tag, exist := p.Tags[guildID][key]; exist {
-				if cmd.Author.ID != tag.AuthorID && !botutils.AuthorIsAdmin(s, cmd.Message) {
+				if cmd.Author.ID != tag.AuthorID && !botutils.AuthorIsAdmin(cmd.Message, s) {
 					msg := fmt.Sprintf("The tag `%s` belongs to %s.", key, cmd.Author.Username)
 					s.ChannelMessageSend(cmd.ChannelID, msg)
 					return
@@ -112,7 +112,7 @@ func (p *tagPlugin) HandleMsg(cmd *botutils.Cmd, s *discordgo.Session) {
 				s.ChannelMessageSend(cmd.ChannelID, fmt.Sprintf("Tag `%v` not found", key))
 				return
 			}
-			if cmd.Author.ID != tag.AuthorID && !botutils.AuthorIsAdmin(s, cmd.Message) {
+			if cmd.Author.ID != tag.AuthorID && !botutils.AuthorIsAdmin(cmd.Message, s) {
 				msg := fmt.Sprintf("Tag `%s` belongs to %s.", key, cmd.Author.Username)
 				s.ChannelMessageSend(cmd.ChannelID, msg)
 				return

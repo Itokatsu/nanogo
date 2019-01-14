@@ -277,7 +277,7 @@ func (p *youtubePlugin) AddSubscription(sub *Subscription, s *discordgo.Session)
 				return
 			}
 		}
-
+		//actually
 		sub.LastNotif = vidID
 		msg := fmt.Sprintf("New video from **%s** \n `%s` \n http://www.youtube.com/watch?v=%s",
 			entry.Author.Name, entry.Title, entry.VideoId[len("yt:video:"):])
@@ -360,7 +360,7 @@ func (p *youtubePlugin) HandleMsg(cmd *botutils.Cmd, s *discordgo.Session) {
 				return
 			}
 
-			if cmd.Author.ID != subs[0].AddedBy.ID && !botutils.AuthorIsAdmin(s, cmd.Message) {
+			if cmd.Author.ID != subs[0].AddedBy.ID && !botutils.AuthorIsAdmin(cmd.Message, s) {
 				s.ChannelMessageSend(cmd.ChannelID, "You cannot do that :nano:")
 				return
 			}

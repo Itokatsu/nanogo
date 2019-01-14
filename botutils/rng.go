@@ -1,13 +1,11 @@
 package botutils
 
 import (
-	"fmt"
 	"math/rand"
 	"time"
 )
 
-func Init() {
-	fmt.Println("rng seed init")
+func init() {
 	rand.Seed(time.Now().UnixNano())
 }
 

@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	//"math/rand"
 	"os"
 	"os/signal"
 	"path"
@@ -67,51 +66,53 @@ var (
 func loadConfig() {
 	file, err := ioutil.ReadFile("./config.json")
 	if err != nil {
-		fmt.Println("Error: Config file not found")
-		os.Exit(1)
+		//fmt.Println("Error: Config file not found")
+		panic("Fatal: Config file not found")
 	}
 	err = json.Unmarshal(file, &Cfg)
 	if err != nil {
-		fmt.Println("Error: Couldn't unmarshal config file")
-		os.Exit(1)
+		//fmt.Println("Error: Couldn't unmarshal config file")
+		panic("Fatal: Couldn't unmarshal config file")
 	}
 }
 
 func init() {
-	// Load config file
+	StartTime = time.Now()
+	// Load config file info Cfg
 	loadConfig()
-	botutils.Init()
 	// Create plugin savestates folder
 	Cfg.Bot.SaveFolder = path.Join(".", Cfg.Bot.SaveFolder)
 	plugin.CreateSaveDir(Cfg.Bot.SaveFolder)
-	StartTime = time.Now()
+	// Start plugins
+	ph = plugin.CreateHandler()
+}
+
+func StartPlugins(ph *plugin.PluginHandler) {
+	go ph.Start(infoplugin.New(StartTime))
+	go ph.Start(diceplugin.New())
+	go ph.Start(tagplugin.New())
+	go ph.Start(catplugin.New())
+	// using config file
+	go ph.Start(alttprplugin.New(Cfg.Plugins.Alttpr))
+	go ph.Start(wolframplugin.New(Cfg.Plugins.Wolfram))
+	go ph.Start(googleplugin.New(Cfg.Plugins.Google))
+	go ph.Start(youtubeplugin.New(Cfg.Plugins.Youtube))
+	go ph.Start(jpplugin.New(Cfg.Plugins.Jp))
 }
 
 func main() {
 	// Create a new Discord session using the provided bot token.
 	dg, err := discordgo.New("Bot " + Cfg.Bot.Token)
 	if err != nil {
-		fmt.Println("error creating Discord session,", err)
-		return
+		panic("Fatal: Couldn't create Discord session")
+		//fmt.Println("error creating Discord session,", err)
 	}
 
-	// Load Plugins
-	ph = plugin.CreateHandler()
-	go ph.Start(infoplugin.New(StartTime))
-	go ph.Start(diceplugin.New())
-	go ph.Start(tagplugin.New())
-	go ph.Start(catplugin.New())
-
-	go ph.Start(alttprplugin.New(Cfg.Plugins.Alttpr))
-	go ph.Start(wolframplugin.New(Cfg.Plugins.Wolfram))
-	go ph.Start(googleplugin.New(Cfg.Plugins.Google))
-	go ph.Start(youtubeplugin.New(Cfg.Plugins.Youtube))
-	go ph.Start(jpplugin.New(Cfg.Plugins.Jp))
+	StartPlugins(ph)
 	defer ph.SaveAll()
 	defer ph.CleanupAll()
-
 	dg.AddHandler(messageCreate) // Listen to new messages
-	dg.AddHandler(messageEdit)   // Listen to message edits
+	dg.AddHandler(messageUpdate) // Listen to message edits
 
 	// Open a websocket connection to Discord and begin listening.
 	err = dg.Open()
@@ -131,24 +132,37 @@ func main() {
 // Handling messages
 func handle(s *discordgo.Session, m *discordgo.Message) {
 	// Ignore messages from bots (and self)
-	if m.Author.ID == s.State.User.ID || m.Author.Bot {
+	if m.Author == nil || m.Author.ID == s.State.User.ID || m.Author.Bot {
 		return
 	}
 	// Test channel only
 	if Cfg.Bot.TestingOnly && m.ChannelID != Cfg.Bot.TestChannel {
 		return
 	}
+
+	//Message is worth parsing
 	cmd := botutils.ParseCmd(m, Cfg.Bot.Prefixes...)
 	if cmd.Name != "" {
-		for _, p := range ph.GetPlugins() {
-			go p.HandleMsg(&cmd, s)
-		}
+		go ph.HandleMsg(&cmd, s)
 	}
-	if cmd.Name == "emo" {
+
+	// easy tests here
+	switch cmd.Name {
+	case "emo":
 		sentMsg, _ := s.ChannelMessageSend(m.ChannelID, "reactions")
 		for i := 0; i <= 10; i++ {
 			s.MessageReactionAdd(m.ChannelID, sentMsg.ID, fmt.Sprintf("%d\u20E3", i))
 		}
+
+	// reboot the bot for config changes
+	case "reboot", "reload":
+		if !botutils.AuthorIsAdmin(cmd.Message, s) {
+			return
+		}
+		ph.SaveAll()
+		ph.CleanupAll()
+		loadConfig()
+		StartPlugins(ph)
 	}
 }
 
@@ -156,6 +170,6 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 	handle(s, m.Message)
 }
 
-func messageEdit(s *discordgo.Session, m *discordgo.MessageUpdate) {
+func messageUpdate(s *discordgo.Session, m *discordgo.MessageUpdate) {
 	handle(s, m.Message)
 }
