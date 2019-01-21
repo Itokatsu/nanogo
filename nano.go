@@ -148,12 +148,6 @@ func handle(s *discordgo.Session, m *discordgo.Message) {
 
 	// easy tests here
 	switch cmd.Name {
-	case "emo":
-		sentMsg, _ := s.ChannelMessageSend(m.ChannelID, "reactions")
-		for i := 0; i <= 10; i++ {
-			s.MessageReactionAdd(m.ChannelID, sentMsg.ID, fmt.Sprintf("%d\u20E3", i))
-		}
-
 	// reboot the bot for config changes
 	case "reboot", "reload":
 		if !botutils.AuthorIsAdmin(cmd.Message, s) {

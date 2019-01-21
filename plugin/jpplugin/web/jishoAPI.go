@@ -53,10 +53,11 @@ const PLEFT = "【"
 const PRIGHT = "】"
 const NBSP = "\u202f"
 
-func JishoAPI(query string) ([]ResultEntry, error) {
+func JishoAPI(query string, page int) ([]ResultEntry, error) {
 	// build request
 	qs := url.Values{}
 	qs.Set("keyword", query)
+	qs.Set("page", fmt.Sprintf("%d", page))
 	reqUrl, _ := url.Parse(JishoAPIEndpoint)
 	reqUrl.RawQuery = qs.Encode()
 	// send request
@@ -72,41 +73,38 @@ func JishoAPI(query string) ([]ResultEntry, error) {
 		entry := ResultEntry{}
 		ja := data.Japanese
 		length := len(data.Japanese)
+
 		// make clean header
 		idx := 0
 		for idx < length {
-			if ja[idx].Word == "" {
-				entry.Header += ja[idx].Reading
+			//multiple writings
+			var writings []string
+			oldReading := ja[idx].Reading
+			for idx < length && ja[idx].Reading == oldReading {
+				writings = append(writings, ja[idx].Word)
 				idx++
-			} else if ja[idx].Reading == "" {
-				entry.Header += ja[idx].Word
-				idx++
-			} else {
-				//multiple writings
-				var writings []string
-				oldReading := ja[idx].Reading
-				for idx < length && ja[idx].Reading == oldReading {
-					writings = append(writings, ja[idx].Word)
-					idx++
-				}
-				idx--
-				//multiple reading
-				var readings []string
-				oldWord := ja[idx].Word
-				for idx < length && ja[idx].Word == oldWord {
-					readings = append(readings, ja[idx].Reading)
-					idx++
-				}
-
-				if len(writings) == 1 {
-					entry.Header = writings[0] + PLEFT
-					entry.Header += strings.Join(readings, SEP_JP) + PRIGHT
-				}
-				if len(readings) == 1 && len(writings) > 1 {
-					entry.Header = strings.Join(writings, SEP_JP)
-					entry.Header += PLEFT + readings[0] + PRIGHT
-				}
 			}
+			idx--
+			//multiple reading
+			var readings []string
+			oldWord := ja[idx].Word
+			for idx < length && ja[idx].Word == oldWord {
+				readings = append(readings, ja[idx].Reading)
+				idx++
+			}
+
+			if len(writings) == 1 {
+				if writings[0] == "" {
+					entry.Header = strings.Join(readings, SEP_JP)
+				} else {
+					entry.Header = writings[0]
+					entry.Header += PLEFT + strings.Join(readings, SEP_JP) + PRIGHT
+				}
+			} else if len(writings) > 1 && len(readings) == 1 {
+				entry.Header = strings.Join(writings, SEP_JP)
+				entry.Header += PLEFT + readings[0] + PRIGHT
+			}
+
 		}
 		entry.Header = entry.Header
 		if data.IsCommon {

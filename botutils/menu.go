@@ -10,16 +10,8 @@ import (
 	"time"
 )
 
-/*
-@TODO pagination ?
- fix interfaces
-*/
-
-var duration = 30 * time.Minute
+var duration = 120 * time.Minute
 var activeMenus = make(map[string]*Menu)
-
-//var duration2 = 10 * time.Hour
-//var activeMenus2 = make([]*Menu2)
 
 type Item fmt.Stringer // MenuItem
 type ItemEmbed interface {
@@ -93,58 +85,6 @@ func GetDefaultEmojis(num int) []string {
 	return emojis
 }
 
-// Creates a embed menu
-/*
-func NewMenu2(s *discordgo.Session, items interface{}, emojis []string, chID string) error {
-	// >> PAS DES ITEMEMBED MAIS DES CHANNELS D'ITEMEMBED pour pas attendre.
-	// check if items is a slice
-	if reflect.TypeOf(items).Kind() != reflect.Slice {
-		return errors.New("elements passed to menu is not a slice")
-	}
-	slice := reflect.ValueOf(items)
-	length := slice.Len()
-	if length > 8 {
-		length = 8
-	}
-	if emojis.Len() >= length {
-		itemMap := make(map[string]ItemEmbed, length)
-	} else {
-		itemMap := make(map[string]ItemEmbed, length)
-		emojis = GetDefaultEmojis(length)
-	}
-	for i := 0; i < length; i++ {
-		// convert to Menu Item2
-		var ok bool
-		key = emojis[i]
-		itemSlice[key], ok = (slice.Index(i).Interface()).(ItemEmbed)
-		if !ok {
-			return errors.New("elements passed to menu do not satisfy MenuItem interface")
-		}
-	}
-	// print menu on discord
-	sentMsg, err := s.ChannelMessageSendEmbed(chID, items[0].Embed)
-	if err != nil {
-		return err
-	}
-	// create Menu
-	menu := Menu2{
-		items: itemMap,
-		msg:   sentMsg,
-	}
-
-	if emojis.Len() > 0 {
-		for _, emoji := range emojis {
-			s.MessageReactionAdd(chID, sentMsg.ID, emoji)
-		}
-	} else { //default to number emojis
-		for i := 0; i < itemSlice.Len(); i++ {
-			s.MessageReactionAdd(chID, sentMsg.ID, fmt.Sprintf("%d\u20E3", i+1))
-		}
-	}
-	//menu.activate(s)
-	// func (s *Session) MessageReactionsRemoveAll(channelID, messageID string) error
-}*/
-
 func (menu *Menu) activate(s *discordgo.Session) {
 	// discordgo start listening for responses
 	menu.handler = s.AddHandler(menu.onMessage)
@@ -182,24 +122,3 @@ func (menu *Menu) onMessage(s *discordgo.Session, m *discordgo.MessageCreate) {
 	}
 	menu.emitter <- menu.items[i-1]
 }
-
-/*
-func (menu *Menu2) onReactionAdd(s *discordgo.Session, r *discordgo.MessageReactionAdd) {
-	menu.EditEmbed(s, r.ChannelID, r.Emoji)
-}
-
-func (menu *Menu2) onReactionRm(s *discordgo.Session, r *discordgo.MessageReactionRemove) {
-	menu.EditEmbed(s, r.ChannelID, r.Emoji)
-}
-
-func (menu *Menu2) EditEmbed(s *discordgo.Session, ChannelID string, e *discordgo.Emoji) {
-	if menu.msg.ChannelID != channelID {
-		return
-	}
-	embed, ok := menu.items[e.ID]
-	if !ok {
-		return
-	}
-	s.ChannelMessageEditEmbed(menu.msg.ChannelID, menu.msg.ID, embed)
-}
-*/

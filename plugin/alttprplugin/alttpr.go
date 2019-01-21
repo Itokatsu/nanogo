@@ -17,6 +17,7 @@ const ItemURL = "https://alttpr.com/seed"
 const EntranceURL = "https://alttpr.com/entrance/seed"
 const SeedDownloadURL = "https://alttpr.com/en/h/"
 const ManualGenerationURL = "https://alttpr.com/en/randomizer"
+const DailySeedURL = "https://alttpr.com/en/daily"
 
 type alttprPlugin struct {
 	Settings SeedOptions
@@ -89,24 +90,6 @@ type EnemizerOptions struct {
 	Enemy    bool    `json:"enemy"` //NOT in standard Mode
 }
 
-func (s SeedOptions) Field(fieldName string) string {
-	svalues := reflect.ValueOf(s)
-	val := svalues.FieldByName(fieldName)
-	if fieldName == "Shuffle" && val.String() == "" {
-		return "NoShuffle"
-	}
-	return val.String()
-}
-
-func (s SeedOptions) SetField(fieldName string, value string) {
-	if value == "NoShuffle" {
-		s.Shuffle = ""
-		return
-	}
-	reflect.ValueOf(&s).
-		Elem().FieldByName(fieldName).SetString(value)
-}
-
 func SearchFields(term string) (key, value string) {
 	for key, values := range fields {
 		for _, v := range values {
@@ -116,6 +99,24 @@ func SearchFields(term string) (key, value string) {
 		}
 	}
 	return "", ""
+}
+
+func (p *alttprPlugin) Field(fieldName string) string {
+	svalues := reflect.ValueOf(p.Settings)
+	val := svalues.FieldByName(fieldName)
+	if fieldName == "Shuffle" && val.String() == "" {
+		return "NoShuffle"
+	}
+	return val.String()
+}
+
+func (p *alttprPlugin) SetField(fieldName string, value string) {
+	if value == "NoShuffle" {
+		p.Settings.Shuffle = ""
+		return
+	}
+	field := reflect.ValueOf(&(p.Settings)).Elem().FieldByName(fieldName)
+	field.SetString(value)
 }
 
 // Load settings from JSON
@@ -135,7 +136,7 @@ func (p *alttprPlugin) GetSettingsEmbed() *discordgo.MessageEmbed {
 		text += fmt.Sprintf("\n%s`%s:` ", emote, key)
 		values := fields[key]
 		for _, v := range values {
-			if p.Settings.Field(key) == v {
+			if p.Field(key) == v {
 				text += fmt.Sprintf("__**%s**__ ", strings.Title(v))
 			} else {
 				text += strings.Title(v) + " "
@@ -159,13 +160,16 @@ func (p *alttprPlugin) HandleMsg(cmd *botutils.Cmd, s *discordgo.Session) {
 				s.ChannelMessageSendEmbed(cmd.ChannelID, p.GetSettingsEmbed())
 				return
 			}
+			if strings.ToLower(cmd.Args[0]) == "daily" {
+				s.ChannelMessageSend(cmd.ChannelID, DailySeedURL)
+				return
+			}
 			// search for arguments in possible fields
 			for _, a := range cmd.Args {
 				a = strings.ToLower(a)
-				//Search fields
 				key, value := SearchFields(a)
-				if value != "" && value != p.Settings.Field(key) {
-					p.Settings.SetField(key, value)
+				if value != "" && value != p.Field(key) {
+					p.SetField(key, value)
 					updated = true
 				}
 				if a == "go" || a == "gen" {
