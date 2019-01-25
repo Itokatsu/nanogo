@@ -17,7 +17,6 @@ type Pager struct {
 	runesPerPage int
 	currentPage  int
 	pages        []int
-	customEmojis map[string]func()
 }
 
 const IPP_DEFAULT = 10
@@ -62,7 +61,6 @@ func NewPager(items interface{}, limits ...int) (*Pager, error) {
 		p.runesPerPage = RPP_DEFAULT
 		p.itemsPerPage = IPP_DEFAULT
 	}
-	p.customEmojis = make(map[string]func())
 	p.pages = []int{0}
 	p.Pagination()
 	return &p, nil
@@ -144,27 +142,8 @@ func (p *Pager) PageEmbed() *Embed {
 	return e
 }
 
-func (p *Pager) AddCustomEmoji(emoji string, f func()) {
-	p.customEmojis[emoji] = f
-}
-
-type PagerLink struct {
-	msg   *discordgo.Message
-	pager *Pager
-}
-
-const maxPagers = 15
-
-type PagerHandler struct {
-	links     map[int]*PagerLink
-	listening bool
-	next      int
-}
-
-var pagerH = PagerHandler{
-	links:     make(map[int]*PagerLink, maxPagers),
-	next:      0,
-	listening: false,
+func (p *Pager) UpdateMsg(s *discordgo.Session, msg *discordgo.Message) {
+	s.ChannelMessageEditEmbed(msg.ChannelID, msg.ID, p.PageEmbed().MessageEmbed)
 }
 
 // Emojis
@@ -172,105 +151,23 @@ const REWIND = "\u23EA"
 const LEFT_ARROW = "\u25C0"
 const RIGHT_ARROW = "\u25B6"
 
-func NumEmoji(i int) string {
-	return fmt.Sprintf("%d\u20E3", i)
-}
-
-// Links pager to discord session and listen to reaction
 func LinkPager(s *discordgo.Session, msg *discordgo.Message, p *Pager) {
 	if len(p.pages) <= 1 {
 		return
 	}
-	// Remove old link
-	if old, ok := pagerH.links[pagerH.next]; ok {
-		s.MessageReactionsRemoveAll(old.msg.ChannelID, old.msg.ID)
-	}
-	// Repalce with new Link
-	link := &PagerLink{
-		msg:   msg,
-		pager: p,
-	}
-	pagerH.links[pagerH.next] = link
-	pagerH.next = (pagerH.next + 1) % maxPagers
-
 	//Add Reactions
 	if len(p.pages) > 2 {
-		s.MessageReactionAdd(msg.ChannelID, msg.ID, REWIND)
+		AddReactionButton(s, msg, REWIND, func() {
+			p.GoToPage(0)
+			p.UpdateMsg(s, msg)
+		})
 	}
-	s.MessageReactionAdd(msg.ChannelID, msg.ID, LEFT_ARROW)
-	s.MessageReactionAdd(msg.ChannelID, msg.ID, RIGHT_ARROW)
-
-	for emoji := range p.customEmojis {
-		s.MessageReactionAdd(msg.ChannelID, msg.ID, emoji)
-	}
-
-	// start listening
-	Listen(s)
-}
-
-func Listen(s *discordgo.Session) {
-	if !pagerH.listening {
-		s.AddHandler(onReactionAdd)
-		s.AddHandler(onReactionRm)
-		pagerH.listening = true
-	}
-}
-
-func GetPagerFromMsg(r *discordgo.MessageReaction) *Pager {
-	for _, link := range pagerH.links {
-		lmsg := link.msg
-		if r.MessageID == lmsg.ID && r.ChannelID == lmsg.ChannelID {
-			return link.pager
-		}
-	}
-	return nil
-}
-
-func onReactionAdd(s *discordgo.Session, r *discordgo.MessageReactionAdd) {
-	onReaction(s, r.MessageReaction)
-}
-
-func onReactionRm(s *discordgo.Session, r *discordgo.MessageReactionRemove) {
-	onReaction(s, r.MessageReaction)
-}
-
-func onReaction(s *discordgo.Session, r *discordgo.MessageReaction) {
-	if r.UserID == s.State.User.ID {
-		return
-	}
-	p := GetPagerFromMsg(r)
-	if p == nil {
-		return
-	}
-	oldPage := p.currentPage
-	// Try to match the Emoji
-	switch r.Emoji.Name {
-	case REWIND:
-		p.GoToPage(0)
-	case LEFT_ARROW:
+	AddReactionButton(s, msg, LEFT_ARROW, func() {
 		p.GoToPage(p.currentPage - 1)
-	case RIGHT_ARROW:
+		p.UpdateMsg(s, msg)
+	})
+	AddReactionButton(s, msg, RIGHT_ARROW, func() {
 		p.GoToPage(p.currentPage + 1)
-	default:
-		// Match Number Emojis
-		for i := 0; i < len(p.pages); i++ {
-			if r.Emoji.Name == NumEmoji(i+1) {
-				p.GoToPage(i)
-			}
-		}
-		// Match Custom Emojis
-		f, exist := p.customEmojis[r.Emoji.Name]
-		if exist {
-			f()
-			oldPage = -1 // get the message updated
-		}
-	}
-	if p.currentPage == oldPage {
-		// No change
-		return
-	}
-	// Edit msg
-	edit := discordgo.NewMessageEdit(r.ChannelID, r.MessageID)
-	edit.SetEmbed(p.PageEmbed().MessageEmbed)
-	s.ChannelMessageEditComplex(edit)
+		p.UpdateMsg(s, msg)
+	})
 }

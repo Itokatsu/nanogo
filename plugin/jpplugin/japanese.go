@@ -92,8 +92,11 @@ func (p *jpPlugin) HandleMsg(cmd *botutils.Cmd, s *discordgo.Session) {
 			return
 		}
 
+		msg, _ := s.ChannelMessageSendEmbed(cmd.ChannelID, pager.PageEmbed().MessageEmbed)
+		botutils.LinkPager(s, msg, pager)
+
 		if len(results) == 20 {
-			pager.AddCustomEmoji(PLUS_EMOJI, func() {
+			botutils.AddReactionButton(s, msg, PLUS_EMOJI, func() {
 				search++
 				results, err := web.JishoAPI(cmd.Args[0], search)
 				if err != nil {
@@ -101,11 +104,9 @@ func (p *jpPlugin) HandleMsg(cmd *botutils.Cmd, s *discordgo.Session) {
 					return
 				}
 				pager.AddItems(results)
+				pager.UpdateMsg(s, msg)
 			})
 		}
-
-		msg, _ := s.ChannelMessageSendEmbed(cmd.ChannelID, pager.PageEmbed().MessageEmbed)
-		botutils.LinkPager(s, msg, pager)
 	}
 }
 

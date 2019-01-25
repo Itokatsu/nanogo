@@ -42,6 +42,8 @@ var Emotes = []string{
 	"<:ded:290790229454094337>",
 }
 
+var GenerateEmote = "\u2611"
+
 var DefaultSettingsJSON = []byte(`{
 	"logic":"NoGlitches",
 	"difficulty":"normal",
@@ -67,6 +69,24 @@ var fields = map[string][]string{
 
 var fieldOrder = []string{"Logic", "Mode", "Difficulty", "Swords", "Variation", "Goal", "Shuffle"}
 
+var fieldsAbbrs = map[string][]string{
+	"ng":        {"Logic", "NoGlitches", "NoShuffle"},
+	"ow":        {"Logic", "OverworldGlitches"},
+	"major":     {"Logic", "MajorGlitches"},
+	"std":       {"Mode", "standard"},
+	"inv":       {"Mode", "inverted"},
+	"cc":        {"Difficulty", "crowdControl"},
+	"key":       {"Variation", "key-sanity"},
+	"trace":     {"Variation", "timed-race"},
+	"t-race":    {"Variation", "timed-race"},
+	"timedrace": {"Variation", "timed-race"},
+	"tohko":     {"Variation", "timed-ohko"},
+	"t-ohko":    {"Variation", "timed-ohko"},
+	"timedohko": {"Variation", "timed-ohko"},
+	"triforce":  {"Goal", "triforce-hunt"},
+	"ns":        {"Shuffle", "NoShuffle"},
+}
+
 type SeedOptions struct {
 	Logic      string      `json:"logic"`
 	Difficulty string      `json:"difficulty"`
@@ -90,7 +110,11 @@ type EnemizerOptions struct {
 	Enemy    bool    `json:"enemy"` //NOT in standard Mode
 }
 
-func SearchFields(term string) (key, value string) {
+func SearchFields(term string) (k string, v string) {
+	res, ok := fieldsAbbrs[term]
+	if ok {
+		return res[0], res[1]
+	}
 	for key, values := range fields {
 		for _, v := range values {
 			if strings.ToLower(v) == term {
@@ -171,9 +195,14 @@ func (p *alttprPlugin) HandleMsg(cmd *botutils.Cmd, s *discordgo.Session) {
 				if value != "" && value != p.Field(key) {
 					p.SetField(key, value)
 					updated = true
-				}
-				if a == "go" || a == "gen" {
-					generate = true
+				} else {
+					switch a {
+					case "generate", "gen", "go":
+						generate = true
+					case "default", "def", "reset":
+						p.LoadSettings(DefaultSettingsJSON)
+						updated = true
+					}
 				}
 			}
 		}
@@ -213,6 +242,7 @@ func (p *alttprPlugin) HandleMsg(cmd *botutils.Cmd, s *discordgo.Session) {
 		}
 		if updated {
 			s.ChannelMessageSendEmbed(cmd.ChannelID, p.GetSettingsEmbed())
+			// go emote
 		}
 	}
 }
