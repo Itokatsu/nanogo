@@ -66,12 +66,10 @@ var (
 func loadConfig() {
 	file, err := ioutil.ReadFile("./config.json")
 	if err != nil {
-		//fmt.Println("Error: Config file not found")
 		panic("Fatal: Config file not found")
 	}
 	err = json.Unmarshal(file, &Cfg)
 	if err != nil {
-		//fmt.Println("Error: Couldn't unmarshal config file")
 		panic("Fatal: Couldn't unmarshal config file")
 	}
 }
@@ -109,8 +107,6 @@ func main() {
 	}
 
 	StartPlugins(ph)
-	defer ph.SaveAll()
-	defer ph.CleanupAll()
 	dg.AddHandler(messageCreate) // Listen to new messages
 	dg.AddHandler(messageUpdate) // Listen to message edits
 
@@ -127,9 +123,22 @@ func main() {
 	sc := make(chan os.Signal, 1)
 	signal.Notify(sc, syscall.SIGINT, syscall.SIGTERM, os.Interrupt, os.Kill)
 	<-sc
+
+	// Clean Stuff
+	ph.SaveAll()
+	ph.CleanupAll()
+	botutils.CleanReactions(dg)
 }
 
 // Handling messages
+func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
+	handle(s, m.Message)
+}
+
+func messageUpdate(s *discordgo.Session, m *discordgo.MessageUpdate) {
+	handle(s, m.Message)
+}
+
 func handle(s *discordgo.Session, m *discordgo.Message) {
 	// Ignore messages from bots (and self)
 	if m.Author == nil || m.Author.ID == s.State.User.ID || m.Author.Bot {
@@ -158,12 +167,4 @@ func handle(s *discordgo.Session, m *discordgo.Message) {
 		loadConfig()
 		StartPlugins(ph)
 	}
-}
-
-func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
-	handle(s, m.Message)
-}
-
-func messageUpdate(s *discordgo.Session, m *discordgo.MessageUpdate) {
-	handle(s, m.Message)
 }

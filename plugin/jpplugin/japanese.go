@@ -103,6 +103,10 @@ func (p *jpPlugin) HandleMsg(cmd *botutils.Cmd, s *discordgo.Session) {
 					fmt.Println(err)
 					return
 				}
+				if len(results) == 0 {
+					botutils.RemoveButton(s, msg.ID, PLUS_EMOJI)
+					return
+				}
 				pager.AddItems(results)
 				pager.UpdateMsg(s, msg)
 			})
