@@ -35,8 +35,7 @@ func AddButton(s *discordgo.Session, m *discordgo.Message, b *EmojiButton) {
 			messages = messages[1:]
 		}
 	}
-
-	//Bind to session
+	//Bind to discordgo session
 	if !listening {
 		s.AddHandler(onReactionAdd)
 		s.AddHandler(onReactionRm)

@@ -13,14 +13,14 @@ import (
 	"github.com/itokatsu/nanogo/botutils"
 )
 
-const ItemURL = "https://alttpr.com/seed"
-const EntranceURL = "https://alttpr.com/entrance/seed"
-const SeedDownloadURL = "https://alttpr.com/en/h/"
-const ManualGenerationURL = "https://alttpr.com/en/randomizer"
-const DailySeedURL = "https://alttpr.com/en/daily"
+const ItemURL = "https://alttpr.com/seed" // Item Randomizer URL
+const EntranceURL = "https://alttpr.com/entrance/seed" // Entrance Randomizer URL
+const SeedDownloadURL = "https://alttpr.com/en/h/" // Download Page
+const ManualGenerationURL = "https://alttpr.com/en/randomizer" // Generation Site URL
+const DailySeedURL = "https://alttpr.com/en/daily" // Daily Run
 
 type alttprPlugin struct {
-	Settings SeedOptions
+	Settings *SeedOptions
 	Cookie   string
 }
 
@@ -33,13 +33,6 @@ func New(cfg Config) (*alttprPlugin, error) {
 	p.Cookie = cfg.Cookie
 	p.LoadSettings(DefaultSettingsJSON)
 	return &p, nil
-}
-
-var Emotes = []string{
-	"<:fairy:290795058284855307>",
-	"<:bird:290795749254496257>",
-	"<:ganon:290792210692046848>",
-	"<:ded:290790229454094337>",
 }
 
 var DefaultSettingsJSON = []byte(`{
@@ -83,32 +76,6 @@ func (p *alttprPlugin) LoadSettings(data []byte) error {
 	return json.Unmarshal(data, &(p.Settings))
 }
 
-func (s *SeedOptions) Validate() error {
-	if s.Enemizer != false {
-		/*if s.Mode == "standard" {
-			if s.Enemizer.EnemyHP != "" {
-				return fmt.Errorf("Standard Mode incompatible with Enemizer.EnemyHP")
-			}
-			if s.Enemizer.Enemy != "" {
-				return fmt.Errorf("Standard Mode incompatible with Enemizer.Enemy")
-			}
-		}*/
-		if s.Variation == "timer-ohko" || s.Variation == "ohko" {
-			return fmt.Errorf("OHKO may not be completable with Enemizer enabled")
-		}
-	}
-	if s.Shuffle != "" {
-		if s.Logic != "NoGlitches" {
-			return fmt.Errorf("Entrance Shuffle only compatible with No Glitches Logic")
-		}
-		if s.Mode == "standard" {
-			return fmt.Errorf("Entrance Shuffle incompatible with  Standard Mode")
-		}
-	}
-
-	return nil
-}
-
 var fieldsValues = map[string][]string{
 	"Logic":      {"NoGlitches", "OverworldGlitches", "MajorGlitches"},
 	"Mode":       {"standard", "open", "inverted"},
@@ -119,7 +86,6 @@ var fieldsValues = map[string][]string{
 	"Shuffle":    {"NoShuffle", "simple", "restricted", "full", "crossed", "insanity"},
 }
 
-// Enemizer fields
 var enemizerFields = map[string][]string{
 	"Boss Shuffle":    {"Off", "Simple", "Full", "Chaos"},
 	"Enemy Damage":    {"Default", "Shuffled", "Chaos"},
@@ -131,32 +97,7 @@ var enemizerFields = map[string][]string{
 
 var fieldsOrder = []string{"Logic", "Mode", "Difficulty", "Swords", "Variation", "Goal", "Shuffle"}
 
-var fieldsAbbrs = map[string][]string{
-	"ng":        {"Logic", "NoGlitches", "NoShuffle"},
-	"ow":        {"Logic", "OverworldGlitches"},
-	"major":     {"Logic", "MajorGlitches"},
-	"std":       {"Mode", "standard"},
-	"inv":       {"Mode", "inverted"},
-	"key":       {"Variation", "key-sanity"},
-	"trace":     {"Variation", "timed-race"},
-	"t-race":    {"Variation", "timed-race"},
-	"timedrace": {"Variation", "timed-race"},
-	"tohko":     {"Variation", "timed-ohko"},
-	"t-ohko":    {"Variation", "timed-ohko"},
-	"timedohko": {"Variation", "timed-ohko"},
-	"triforce":  {"Goal", "triforce-hunt"},
-	"ns":        {"Shuffle", "NoShuffle"},
-}
-
-func (p *alttprPlugin) Field(fieldName string) string {
-	svalues := reflect.ValueOf(p.Settings)
-	val := svalues.FieldByName(fieldName)
-	if fieldName == "Shuffle" && val.String() == "" {
-		return "NoShuffle"
-	}
-	return val.String()
-}
-
+//Search field from *lowercased* value
 func SearchFields(term string) (k string, v string) {
 	res, ok := fieldsAbbrs[term]
 	if ok {
@@ -172,16 +113,36 @@ func SearchFields(term string) (k string, v string) {
 	return "", ""
 }
 
-func (p *alttprPlugin) SetField(fieldName string, value string) {
+// Get a Field value from variable name
+func (op *SeedOptions) Field(fieldName string) string {
+	svalues := reflect.ValueOf(op).Elem()
+	val := svalues.FieldByName(fieldName)
+	if fieldName == "Shuffle" && val.String() == "" {
+		return "NoShuffle"
+	}
+	return val.String()
+}
+
+// Set a field to value
+func (op *SeedOptions) SetField(fieldName string, value string) {
 	if value == "NoShuffle" {
-		p.Settings.Shuffle = ""
+		op.Shuffle = ""
 		return
 	}
-	field := reflect.ValueOf(&(p.Settings)).Elem().FieldByName(fieldName)
+	field := reflect.ValueOf(op).Elem().FieldByName(fieldName)
 	field.SetString(value)
 }
 
-func (p *alttprPlugin) GetSettingsEmbed() *discordgo.MessageEmbed {
+// Emotes used in embed
+var Emotes = []string{
+	"<:fairy:290795058284855307>",
+	"<:bird:290795749254496257>",
+	"<:ganon:290792210692046848>",
+	"<:ded:290790229454094337>",
+}
+
+// Generate Embed from Settings
+func (op *SeedOptions) Embed() *botutils.Embed {
 	embed := botutils.NewEmbed().
 		SetTitle("ALTTP:Randomizer - Options").
 		SetURL("https://alttpr.com/en/options").
@@ -193,7 +154,7 @@ func (p *alttprPlugin) GetSettingsEmbed() *discordgo.MessageEmbed {
 		text += fmt.Sprintf("\n%s`%s:` ", emote, key)
 		values := fieldsValues[key]
 		for _, v := range values {
-			if p.Field(key) == v {
+			if op.Field(key) == v {
 				text += fmt.Sprintf("__**%s**__ ", strings.Title(v))
 			} else {
 				text += strings.Title(v) + " "
@@ -201,7 +162,7 @@ func (p *alttprPlugin) GetSettingsEmbed() *discordgo.MessageEmbed {
 		}
 	}
 	text = strings.Replace(text, "Ohko", "OHKO", -1)
-	return embed.SetDescription(text).MessageEmbed
+	return embed.SetDescription(text)
 }
 
 func (p *alttprPlugin) HandleMsg(cmd *botutils.Cmd, s *discordgo.Session) {
@@ -224,11 +185,13 @@ func (p *alttprPlugin) HandleMsg(cmd *botutils.Cmd, s *discordgo.Session) {
 				for _, a := range cmd.Args {
 					a = strings.ToLower(a)
 					key, value := SearchFields(a)
-					if value != "" && value != p.Field(key) {
-						p.SetField(key, value)
+					if value != "" && value != p.Settings.Field(key) {
+						p.Settings.SetField(key, value)
 						display = true
 					} else {
 						switch a {
+						case "rand", "rando", "?":
+							display = true
 						case "generate", "gen", "go":
 							generate = true
 						case "default", "def", "reset":
@@ -240,21 +203,33 @@ func (p *alttprPlugin) HandleMsg(cmd *botutils.Cmd, s *discordgo.Session) {
 			}
 		}
 
+		// Seed Generation
 		if generate {
 			msgComplex := &discordgo.MessageSend{
 				Content: "Generating seed…",
-				Embed:   p.GetSettingsEmbed(),
+				Embed:   p.Settings.Embed().MessageEmbed,
 			}
 			msg, _ := s.ChannelMessageSendComplex(cmd.ChannelID, msgComplex)
-			go p.GenerateSeedEditMsg(s, msg)
+			go p.GenerateSeedEditMsg(s, msg, p.Settings)
 			return
 		}
+		// Display Settings
 		if display {
-			msg, _ := s.ChannelMessageSendEmbed(cmd.ChannelID, p.GetSettingsEmbed())
+			msg, _ := s.ChannelMessageSendEmbed(cmd.ChannelID, p.Settings.Embed().MessageEmbed)
+			options := p.Settings
+			// Randomize Button
+			botutils.AddReactionButton(s, msg, "🔁", func() {
+				edit := discordgo.NewMessageEdit(msg.ChannelID, msg.ID)
+				options = GenerateRandOptions(myWeights)
+				s.ChannelMessageEditComplex(edit.SetEmbed(options.Embed().MessageEmbed))
+			})
+			
+			// Generate Button
 			botutils.AddReactionButtonOnce(s, msg, "\u25B6", func() {
 				edit := discordgo.NewMessageEdit(msg.ChannelID, msg.ID)
 				s.ChannelMessageEditComplex(edit.SetContent("Generating seed…"))
-				go p.GenerateSeedEditMsg(s, msg)
+				go p.GenerateSeedEditMsg(s, msg, options)
+				botutils.RemoveButtonAll(s, msg.ID)
 			})
 		}
 	}
@@ -264,15 +239,18 @@ type Seed struct {
 	Hash string `json:"hash"`
 }
 
-func (p *alttprPlugin) GenerateSeedLink() (string, error) {
+func (p *alttprPlugin) GenerateSeedLink(options *SeedOptions) (string, error) {
+	if options == nil {
+		options = p.Settings
+	}
 	// @TODO Validate Settings
-	data, err := json.Marshal(p.Settings)
+	data, err := json.Marshal(options)
 	if err != nil {
 		return "", err
 	}
 	// Build Request
 	reqUrl := ItemURL
-	if p.Settings.Shuffle != "" {
+	if options.Shuffle != "" {
 		reqUrl = EntranceURL
 	}
 	req, err := http.NewRequest("POST", reqUrl, bytes.NewBuffer(data))
@@ -295,9 +273,9 @@ func (p *alttprPlugin) GenerateSeedLink() (string, error) {
 	return link, nil
 }
 
-func (p *alttprPlugin) GenerateSeedEditMsg(s *discordgo.Session, msg *discordgo.Message) {
+func (p *alttprPlugin) GenerateSeedEditMsg(s *discordgo.Session, msg *discordgo.Message, options *SeedOptions) {
 	edit := discordgo.NewMessageEdit(msg.ChannelID, msg.ID)
-	link, err := p.GenerateSeedLink()
+	link, err := p.GenerateSeedLink(options)
 	if err != nil {
 		s.MessageReactionAdd(msg.ChannelID, msg.ID, botutils.ErrorEmote)
 		edit.SetContent("Something went terribly wrong…").
@@ -305,18 +283,58 @@ func (p *alttprPlugin) GenerateSeedEditMsg(s *discordgo.Session, msg *discordgo.
 				botutils.NewEmbed().
 					SetDescription(err.Error()).
 					SetColor(0xFF0000).
+					SetTitle("ALLTP: Randomizer").
 					SetURL(ManualGenerationURL).
 					SetFooter("Click the URL and try to generate it yourself").
 					MessageEmbed)
 	} else {
 		edit.SetContent(link).
 			SetEmbed(
-				botutils.GetEmbed(msg).
+				options.Embed().
 					SetTitle("Your seed is ready !").
 					SetColor(0x99FF99).
 					SetURL(link).MessageEmbed)
 	}
 	s.ChannelMessageEditComplex(edit)
+}
+
+// Randomize Options
+var myWeights = [][]int{
+	{80, 20, 0},          // {"NoGlitches", "OverworldGlitches", "MajorGlitches"},
+	{5, 100, 10},         // {"standard", "open", "inverted"},
+	{5, 100, 25, 5, 0},   // {"easy", "normal", "hard", "expert", "insane"},
+	{20, 80, 0},          // {"uncle", "randomized", "swordless"},
+	{100, 5, 0, 1, 1, 0}, // {"none", "key-sanity", "retro", "timed-race", "timed-ohko", "ohko"},
+	{50, 20, 20, 5},      // {"ganon", "dungeons", "pedestal", "triforce-hunt"},
+	{100, 2, 2, 2, 2, 2}, // {"NoShuffle", "simple", "restricted", "full", "crossed", "insanity"},
+}
+var babyWeights = [][]int{
+	{100, 0, 0},
+	{75, 25, 0},
+	{75, 25, 0, 0, 0},
+	{90, 10, 0},
+	{100, 0, 0, 0, 0, 0},
+	{100, 0, 0, 0},
+	{100, 0, 0, 0, 0, 0},
+}
+var fullRandomWeights = [][]int{
+	{1, 1, 1},
+	{1, 1, 1},
+	{1, 1, 1, 1, 1},
+	{1, 1, 1},
+	{1, 1, 1, 1, 1, 1},
+	{1, 1, 1, 1},
+	{1, 1, 1, 1, 1, 1},
+}
+
+func GenerateRandOptions(weights [][]int) *SeedOptions {
+	var options SeedOptions
+	for idx, field := range fieldsOrder {
+		valueIdx := botutils.RandWeights(weights[idx])
+		options.SetField(field, fieldsValues[field][valueIdx])
+	}
+	options.Enemizer = false
+	return &options
 }
 
 func (p *alttprPlugin) Name() string {
@@ -329,4 +347,26 @@ func (p *alttprPlugin) HasData() bool {
 
 func (p *alttprPlugin) Help() string {
 	return ""
+}
+
+// Abbreviations for fields
+var fieldsAbbrs = map[string][]string{
+	"ng":        {"Logic", "NoGlitches", "NoShuffle"},
+	"ow":        {"Logic", "OverworldGlitches"},
+	"major":     {"Logic", "MajorGlitches"},
+	"nl":        {"Logic", "NoLogic"},
+	"std":       {"Mode", "standard"},
+	"inv":       {"Mode", "inverted"},
+	"key":       {"Variation", "key-sanity"},
+	"ks":        {"Variation", "key-sanity"},
+	"trace":     {"Variation", "timed-race"},
+	"t-race":    {"Variation", "timed-race"},
+	"timedrace": {"Variation", "timed-race"},
+	"tohko":     {"Variation", "timed-ohko"},
+	"t-ohko":    {"Variation", "timed-ohko"},
+	"timedohko": {"Variation", "timed-ohko"},
+	"triforce":  {"Goal", "triforce-hunt"},
+	"tri":       {"Goal", "triforce-hunt"},
+	"hunt":      {"Goal", "triforce-hunt"},
+	"ns":        {"Shuffle", "NoShuffle"},
 }
