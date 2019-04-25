@@ -13,11 +13,11 @@ import (
 	"github.com/itokatsu/nanogo/botutils"
 )
 
-const ItemURL = "https://alttpr.com/seed" // Item Randomizer URL
-const EntranceURL = "https://alttpr.com/entrance/seed" // Entrance Randomizer URL
-const SeedDownloadURL = "https://alttpr.com/en/h/" // Download Page
+const ItemURL = "https://alttpr.com/seed"                      // Item Randomizer URL
+const EntranceURL = "https://alttpr.com/entrance/seed"         // Entrance Randomizer URL
+const SeedDownloadURL = "https://alttpr.com/en/h/"             // Download Page
 const ManualGenerationURL = "https://alttpr.com/en/randomizer" // Generation Site URL
-const DailySeedURL = "https://alttpr.com/en/daily" // Daily Run
+const DailySeedURL = "https://alttpr.com/en/daily"             // Daily Run
 
 type alttprPlugin struct {
 	Settings *SeedOptions
@@ -169,7 +169,10 @@ func (p *alttprPlugin) HandleMsg(cmd *botutils.Cmd, s *discordgo.Session) {
 	switch strings.ToLower(cmd.Name) {
 	case "alttp", "lttp", "zeldo", "z":
 		generate := false
+		randomized := false
 		display := false
+		options := p.Settings
+        randWeights := myWeights
 		// Parse command arguments
 		if len(cmd.Args) < 1 {
 			generate = true
@@ -178,7 +181,7 @@ func (p *alttprPlugin) HandleMsg(cmd *botutils.Cmd, s *discordgo.Session) {
 				s.ChannelMessageSend(cmd.ChannelID, DailySeedURL)
 				return
 			}
-			if strings.HasPrefix(strings.ToLower(cmd.Args[0]), "set") {
+			if strings.HasPrefix(strings.ToLower(cmd.Args[0]), "settings") {
 				display = true
 			} else {
 				// search for arguments in possible fields
@@ -186,12 +189,19 @@ func (p *alttprPlugin) HandleMsg(cmd *botutils.Cmd, s *discordgo.Session) {
 					a = strings.ToLower(a)
 					key, value := SearchFields(a)
 					if value != "" && value != p.Settings.Field(key) {
-						p.Settings.SetField(key, value)
+						options.SetField(key, value)
 						display = true
 					} else {
 						switch a {
 						case "rand", "rando", "?":
 							display = true
+							randomized = true
+                            options = GenerateRandOptions(randWeights)
+						case "fullrand", "??":
+							display = true
+							randomized = true
+							randWeights = fullRandomWeights
+                            options = GenerateRandOptions(randWeights)
 						case "generate", "gen", "go":
 							generate = true
 						case "default", "def", "reset":
@@ -202,28 +212,30 @@ func (p *alttprPlugin) HandleMsg(cmd *botutils.Cmd, s *discordgo.Session) {
 				}
 			}
 		}
-
+		if !randomized && !generate {
+            // Save changes
+			p.Settings = options
+		}
 		// Seed Generation
 		if generate {
 			msgComplex := &discordgo.MessageSend{
 				Content: "Generating seed…",
-				Embed:   p.Settings.Embed().MessageEmbed,
+				Embed:   options.Embed().MessageEmbed,
 			}
 			msg, _ := s.ChannelMessageSendComplex(cmd.ChannelID, msgComplex)
-			go p.GenerateSeedEditMsg(s, msg, p.Settings)
+			go p.GenerateSeedEditMsg(s, msg, options)
 			return
 		}
 		// Display Settings
 		if display {
-			msg, _ := s.ChannelMessageSendEmbed(cmd.ChannelID, p.Settings.Embed().MessageEmbed)
-			options := p.Settings
+			msg, _ := s.ChannelMessageSendEmbed(cmd.ChannelID, options.Embed().MessageEmbed)
 			// Randomize Button
 			botutils.AddReactionButton(s, msg, "🔁", func() {
 				edit := discordgo.NewMessageEdit(msg.ChannelID, msg.ID)
-				options = GenerateRandOptions(myWeights)
+				options = GenerateRandOptions(randWeights)
 				s.ChannelMessageEditComplex(edit.SetEmbed(options.Embed().MessageEmbed))
 			})
-			
+
 			// Generate Button
 			botutils.AddReactionButtonOnce(s, msg, "\u25B6", func() {
 				edit := discordgo.NewMessageEdit(msg.ChannelID, msg.ID)
@@ -238,6 +250,7 @@ func (p *alttprPlugin) HandleMsg(cmd *botutils.Cmd, s *discordgo.Session) {
 type Seed struct {
 	Hash string `json:"hash"`
 }
+
 
 func (p *alttprPlugin) GenerateSeedLink(options *SeedOptions) (string, error) {
 	if options == nil {
@@ -307,15 +320,6 @@ var myWeights = [][]int{
 	{100, 5, 0, 1, 1, 0}, // {"none", "key-sanity", "retro", "timed-race", "timed-ohko", "ohko"},
 	{50, 20, 20, 5},      // {"ganon", "dungeons", "pedestal", "triforce-hunt"},
 	{100, 2, 2, 2, 2, 2}, // {"NoShuffle", "simple", "restricted", "full", "crossed", "insanity"},
-}
-var babyWeights = [][]int{
-	{100, 0, 0},
-	{75, 25, 0},
-	{75, 25, 0, 0, 0},
-	{90, 10, 0},
-	{100, 0, 0, 0, 0, 0},
-	{100, 0, 0, 0},
-	{100, 0, 0, 0, 0, 0},
 }
 var fullRandomWeights = [][]int{
 	{1, 1, 1},
