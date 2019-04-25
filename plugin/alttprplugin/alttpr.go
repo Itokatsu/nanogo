@@ -173,6 +173,8 @@ func (p *alttprPlugin) HandleMsg(cmd *botutils.Cmd, s *discordgo.Session) {
 		display := false
 		options := p.Settings
         randWeights := myWeights
+        fixedOptions := make(map[string]string)
+
 		// Parse command arguments
 		if len(cmd.Args) < 1 {
 			generate = true
@@ -188,22 +190,27 @@ func (p *alttprPlugin) HandleMsg(cmd *botutils.Cmd, s *discordgo.Session) {
 				for _, a := range cmd.Args {
 					a = strings.ToLower(a)
 					key, value := SearchFields(a)
-					if value != "" && value != p.Settings.Field(key) {
-						options.SetField(key, value)
-						display = true
-					} else {
+					if value != "" {
+                        fixedOptions[key] = value
+                        if value != options.Field(key) {
+                            // change value
+    						options.SetField(key, value)
+						    display = true
+                        }
+                    } else {
 						switch a {
+                        // full randomize
+                        case "fullrand", "??":
+							randWeights = fullRandomWeights
+							display = true
+							randomized = true
+                        // classic weighted randomize
 						case "rand", "rando", "?":
 							display = true
 							randomized = true
-                            options = GenerateRandOptions(randWeights)
-						case "fullrand", "??":
-							display = true
-							randomized = true
-							randWeights = fullRandomWeights
-                            options = GenerateRandOptions(randWeights)
 						case "generate", "gen", "go":
 							generate = true
+                        // reset settings
 						case "default", "def", "reset":
 							p.LoadSettings(DefaultSettingsJSON)
 							display = true
@@ -212,6 +219,9 @@ func (p *alttprPlugin) HandleMsg(cmd *botutils.Cmd, s *discordgo.Session) {
 				}
 			}
 		}
+        if randomized {
+            options = GenerateRandOptions(randWeights, fixedOptions)
+        }
 		if !randomized && !generate {
             // Save changes
 			p.Settings = options
@@ -232,7 +242,7 @@ func (p *alttprPlugin) HandleMsg(cmd *botutils.Cmd, s *discordgo.Session) {
 			// Randomize Button
 			botutils.AddReactionButton(s, msg, "🔁", func() {
 				edit := discordgo.NewMessageEdit(msg.ChannelID, msg.ID)
-				options = GenerateRandOptions(randWeights)
+				options = GenerateRandOptions(randWeights, fixedOptions)
 				s.ChannelMessageEditComplex(edit.SetEmbed(options.Embed().MessageEmbed))
 			})
 
@@ -331,11 +341,15 @@ var fullRandomWeights = [][]int{
 	{1, 1, 1, 1, 1, 1},
 }
 
-func GenerateRandOptions(weights [][]int) *SeedOptions {
+func GenerateRandOptions(weights [][]int, fixOptions map[string]string) *SeedOptions {
 	var options SeedOptions
 	for idx, field := range fieldsOrder {
-		valueIdx := botutils.RandWeights(weights[idx])
-		options.SetField(field, fieldsValues[field][valueIdx])
+        if fixValue, ok := fixOptions[field]; ok {
+            options.SetField(field, fixValue)
+        } else {
+            valueIdx := botutils.RandWeights(weights[idx])
+            options.SetField(field, fieldsValues[field][valueIdx])
+        }
 	}
 	options.Enemizer = false
 	return &options
@@ -369,6 +383,8 @@ var fieldsAbbrs = map[string][]string{
 	"tohko":     {"Variation", "timed-ohko"},
 	"t-ohko":    {"Variation", "timed-ohko"},
 	"timedohko": {"Variation", "timed-ohko"},
+    "dun":  {"Goal", "dungeons"},
+    "ped":  {"Goal", "pedestal"},
 	"triforce":  {"Goal", "triforce-hunt"},
 	"tri":       {"Goal", "triforce-hunt"},
 	"hunt":      {"Goal", "triforce-hunt"},
