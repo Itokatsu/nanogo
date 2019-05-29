@@ -100,6 +100,7 @@ func (menu *Menu) desactivate(s *discordgo.Session) {
 	menu.handler()      // discordgo stop listening
 	menu.timer.Stop()   // stop timer
 	close(menu.emitter) // close channel
+    delete(activeMenus,menu.channelID) // remove from map
 }
 
 func (menu *Menu) onMessage(s *discordgo.Session, m *discordgo.MessageCreate) {

@@ -287,6 +287,7 @@ func (p *alttprPlugin) GenerateSeedLink(options *SeedOptions) (string, error) {
 	defer resp.Body.Close()
 	// Read Response
 	body, _ := ioutil.ReadAll(resp.Body)
+    fmt.Println(body)
 	var seed Seed
 	err = json.Unmarshal(body, &seed)
 	if err != nil {
