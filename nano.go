@@ -28,6 +28,7 @@ import (
 	"github.com/itokatsu/nanogo/plugin/tagplugin"
 	"github.com/itokatsu/nanogo/plugin/wolframplugin"
 	"github.com/itokatsu/nanogo/plugin/youtubeplugin"
+    "github.com/itokatsu/nanogo/plugin/timeplugin"
 )
 
 // Config file
@@ -90,7 +91,9 @@ func StartPlugins(ph *plugin.PluginHandler) {
 	go ph.Start(diceplugin.New())
 	go ph.Start(tagplugin.New())
 	go ph.Start(catplugin.New())
-	// using config file
+	go ph.Start(timeplugin.New())
+	
+    // using config file
 	go ph.Start(alttprplugin.New(Cfg.Plugins.Alttpr))
 	go ph.Start(wolframplugin.New(Cfg.Plugins.Wolfram))
 	go ph.Start(googleplugin.New(Cfg.Plugins.Google))
